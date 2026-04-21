@@ -10,5 +10,25 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  build: {
+    // Split chunks for better caching
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          'http-vendor': ['axios'],
+        }
+      }
+    },
+    // Target modern browsers for smaller bundle
+    target: 'es2020',
+    // Enable source maps for debugging
+    sourcemap: false,
+  },
+  // Optimize deps
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', 'axios']
   }
 })

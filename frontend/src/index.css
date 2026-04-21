@@ -6,43 +6,242 @@
   * {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Better tap behavior on mobile */
+    -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+  }
+
+  html {
+    /* Prevent font scaling in landscape on iOS */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Smooth scrolling */
+    scroll-behavior: smooth;
   }
 
   body {
     @apply bg-ink-950 text-ink-100 font-sans;
+    /* Safe areas for notched phones */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    /* Prevent horizontal scroll */
+    overflow-x: hidden;
+    /* Minimum body height */
+    min-height: 100dvh;
+    min-height: 100vh; /* fallback */
   }
 
   ::selection {
     @apply bg-accent/30 text-white;
   }
 
+  /* Responsive base typography */
+  h1 { @apply text-xl sm:text-2xl font-semibold; }
+  h2 { @apply text-lg sm:text-xl font-semibold; }
+  h3 { @apply text-base sm:text-lg font-semibold; }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { @apply bg-ink-900; }
   ::-webkit-scrollbar-thumb { @apply bg-ink-600 rounded-full; }
   ::-webkit-scrollbar-thumb:hover { @apply bg-ink-500; }
+
+  /* Input type="date" fix on mobile */
+  input[type="date"] {
+    appearance: none;
+    -webkit-appearance: none;
+  }
 }
 
 @layer components {
+  /* ── Buttons ─────────────────────────────────────── */
   .btn-primary {
-    @apply bg-accent hover:bg-accent-light text-white font-medium px-5 py-2.5 rounded-lg transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed text-sm;
+    @apply bg-accent hover:bg-accent-light active:bg-accent-dark text-white font-medium px-4 py-2.5 sm:px-5 rounded-lg transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed text-sm touch-manipulation;
+    /* Minimum touch target 44px */
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   .btn-ghost {
-    @apply bg-ink-800 hover:bg-ink-700 text-ink-200 font-medium px-5 py-2.5 rounded-lg transition-all duration-150 text-sm border border-ink-700;
+    @apply bg-ink-800 hover:bg-ink-700 active:bg-ink-600 text-ink-200 font-medium px-4 py-2.5 sm:px-5 rounded-lg transition-all duration-150 text-sm border border-ink-700 touch-manipulation;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   .btn-danger {
-    @apply bg-danger/10 hover:bg-danger/20 text-danger font-medium px-5 py-2.5 rounded-lg transition-all duration-150 text-sm border border-danger/20;
+    @apply bg-danger/10 hover:bg-danger/20 active:bg-danger/30 text-danger font-medium px-4 py-2.5 sm:px-5 rounded-lg transition-all duration-150 text-sm border border-danger/20 touch-manipulation;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
+  .btn-icon {
+    @apply bg-ink-800 hover:bg-ink-700 active:bg-ink-600 text-ink-300 rounded-lg transition-all duration-150 border border-ink-700 touch-manipulation;
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── Form inputs ─────────────────────────────────── */
   .input-field {
-    @apply w-full bg-ink-800 border border-ink-700 rounded-lg px-4 py-2.5 text-ink-100 placeholder-ink-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all text-sm;
+    @apply w-full bg-ink-800 border border-ink-700 rounded-lg px-3 py-2.5 sm:px-4 text-ink-100 placeholder-ink-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all text-sm sm:text-base;
+    /* Better mobile input sizing */
+    min-height: 44px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
   }
+  @screen sm {
+    .input-field {
+      font-size: 0.875rem; /* Back to text-sm on desktop */
+    }
+  }
+
+  /* ── Cards ───────────────────────────────────────── */
   .card {
     @apply bg-ink-900 border border-ink-800 rounded-xl;
   }
+  .card-mobile {
+    @apply bg-ink-900 border border-ink-800 rounded-xl sm:rounded-xl rounded-lg;
+  }
+
+  /* ── Labels ──────────────────────────────────────── */
   .label {
     @apply block text-xs font-medium text-ink-400 mb-1.5 uppercase tracking-wider;
   }
+
+  /* ── Badges ──────────────────────────────────────── */
   .badge {
     @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
   }
+
+  /* ── Bottom nav (mobile) ─────────────────────────── */
+  .bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-ink-900/95 border-t border-ink-800 z-40 backdrop-blur-md;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* ── Swipe container ─────────────────────────────── */
+  .swipe-container {
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ── Modal overlay ───────────────────────────────── */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 bg-black/60 backdrop-blur-sm;
+    /* Full safe area coverage */
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+
+  /* ── Responsive table ────────────────────────────── */
+  .table-responsive {
+    @apply overflow-x-auto -mx-4 sm:mx-0;
+    /* Hide scrollbar but keep functionality */
+    scrollbar-width: none;
+  }
+  .table-responsive::-webkit-scrollbar { display: none; }
+
+  /* ── Page padding accounting for bottom nav ──────── */
+  .page-content {
+    @apply pb-20 sm:pb-6;
+  }
+}
+
+/* ── Responsive utilities ────────────────────────────── */
+@layer utilities {
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  /* Hide on mobile, show on desktop */
+  .desktop-only {
+    @apply hidden sm:flex;
+  }
+
+  /* Show on mobile, hide on desktop */
+  .mobile-only {
+    @apply flex sm:hidden;
+  }
+
+  /* Safe area padding */
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* Line clamp */
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Smooth scrolling for tab content */
+  .scroll-snap-x {
+    scroll-snap-type: x mandatory;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .scroll-snap-x::-webkit-scrollbar { display: none; }
+
+  .snap-start { scroll-snap-align: start; }
+
+  /* Animation */
+  .slide-up {
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .scale-in {
+    animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+}
+
+/* ── Print styles ────────────────────────────────────── */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; color: black !important; }
+  .card { border: 1px solid #e5e7eb !important; background: white !important; }
+  .bg-ink-800, .bg-ink-900, .bg-ink-950 { background: white !important; }
+  .text-ink-100, .text-ink-200, .text-ink-300 { color: #111 !important; }
+  .text-ink-400, .text-ink-500 { color: #555 !important; }
+  table { border-collapse: collapse !important; }
+  th, td { border: 1px solid #ddd !important; }
+}
+
+/* ── PWA install prompt ──────────────────────────────── */
+.pwa-install-banner {
+  @apply fixed bottom-20 sm:bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 bg-ink-800 border border-ink-700 rounded-xl p-4 z-50 shadow-2xl;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }

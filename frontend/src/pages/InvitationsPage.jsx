@@ -42,62 +42,65 @@ export default function InvitationsPage() {
   return (
     <Layout>
       <div className="max-w-lg">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold text-ink-100">Invitations</h1>
-          <p className="text-sm text-ink-500 mt-0.5">Groups you've been invited to join</p>
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-lg sm:text-xl font-semibold text-ink-100">Invitations</h1>
+          <p className="text-xs sm:text-sm text-ink-500 mt-0.5">Groups you've been invited to join</p>
         </div>
 
         {loading ? (
           <div className="flex justify-center py-16">
-            <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" aria-label="Loading" />
           </div>
         ) : invitations.length === 0 ? (
-          <div className="text-center py-16 card">
-            <div className="text-4xl mb-3">📭</div>
-            <p className="text-ink-300 font-medium">No pending invitations</p>
-            <p className="text-ink-500 text-sm mt-1">When someone invites you to a group, it'll show up here</p>
+          <div className="text-center py-12 sm:py-16 card fade-in">
+            <div className="text-4xl mb-3" aria-hidden>📭</div>
+            <p className="text-ink-300 font-medium text-sm sm:text-base">No pending invitations</p>
+            <p className="text-ink-500 text-xs sm:text-sm mt-1">When someone invites you to a group, it'll appear here</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 fade-in">
             {invitations.map(inv => (
-              <div key={inv.groupId} className="card p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="w-8 h-8 bg-accent/10 text-accent rounded-lg flex items-center justify-center font-bold">
-                        {inv.groupName[0].toUpperCase()}
-                      </span>
-                      <div>
-                        <p className="font-medium text-ink-100">{inv.groupName}</p>
-                        <p className="text-xs text-ink-500">
-                          {inv.country} · Admin: {inv.admin?.fullName}
-                        </p>
-                      </div>
-                    </div>
+              <div key={inv.groupId} className="card p-4 sm:p-5">
+                <div className="flex items-start gap-3">
+                  {/* Icon */}
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-accent/10 text-accent rounded-xl flex items-center justify-center font-bold shrink-0" aria-hidden>
+                    {inv.groupName[0].toUpperCase()}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-ink-100 text-sm sm:text-base truncate">{inv.groupName}</p>
+                    <p className="text-xs text-ink-500 mt-0.5 truncate">
+                      {inv.country} · Admin: {inv.admin?.fullName}
+                    </p>
                     {inv.invitedAt && (
-                      <p className="text-xs text-ink-600 mt-2">
+                      <p className="text-xs text-ink-600 mt-1">
                         Invited {new Date(inv.invitedAt).toLocaleDateString('en-US', {
                           day: 'numeric', month: 'short', year: 'numeric'
                         })}
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button
-                      onClick={() => respond(inv.groupId, 'reject')}
-                      disabled={!!responding[inv.groupId]}
-                      className="btn-danger text-xs px-3 py-1.5"
-                    >
-                      {responding[inv.groupId] === 'reject' ? <Spinner /> : 'Decline'}
-                    </button>
-                    <button
-                      onClick={() => respond(inv.groupId, 'accept')}
-                      disabled={!!responding[inv.groupId]}
-                      className="btn-primary text-xs px-3 py-1.5 flex items-center justify-center gap-1"
-                    >
-                      {responding[inv.groupId] === 'accept' ? <Spinner /> : 'Accept'}
-                    </button>
-                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 mt-3 sm:mt-4">
+                  <button
+                    onClick={() => respond(inv.groupId, 'reject')}
+                    disabled={!!responding[inv.groupId]}
+                    className="btn-danger flex-1 text-sm"
+                    aria-label={`Decline invitation to ${inv.groupName}`}
+                  >
+                    {responding[inv.groupId] === 'reject' ? <Spinner /> : 'Decline'}
+                  </button>
+                  <button
+                    onClick={() => respond(inv.groupId, 'accept')}
+                    disabled={!!responding[inv.groupId]}
+                    className="btn-primary flex-1 text-sm"
+                    aria-label={`Accept invitation to ${inv.groupName}`}
+                  >
+                    {responding[inv.groupId] === 'accept' ? <Spinner /> : 'Accept'}
+                  </button>
                 </div>
               </div>
             ))}
@@ -109,5 +112,5 @@ export default function InvitationsPage() {
 }
 
 function Spinner() {
-  return <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />;
+  return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" aria-hidden />;
 }
