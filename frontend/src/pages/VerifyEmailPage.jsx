@@ -68,7 +68,7 @@ export default function VerifyEmailPage() {
               <input
                 type="text"
                 className="input-field text-center text-xl tracking-widest font-mono"
-                placeholder="000000"
+                placeholder="Enter 6 digit OTP"
                 maxLength={6}
                 value={otp}
                 onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}

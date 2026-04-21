@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
               <p className="text-sm text-ink-400">Code sent to <span className="text-accent">{email}</span></p>
               <div>
                 <label className="label">6-Digit Code</label>
-                <input type="text" className="input-field text-center text-xl tracking-widest font-mono" placeholder="000000" maxLength={6} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))} required />
+                <input type="text" className="input-field text-center text-xl tracking-widest font-mono" placeholder="Enter 6 digit OTP" maxLength={6} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))} required />
               </div>
               <button className="btn-primary w-full">Continue</button>
             </form>

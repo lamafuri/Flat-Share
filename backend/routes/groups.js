@@ -197,4 +197,51 @@ router.delete('/:id/members/:userId', protect, async (req, res) => {
   }
 });
 
+// @route  PUT /api/groups/:id
+// @desc   Edit group name/country (admin only)
+router.put('/:id', protect, async (req, res) => {
+  try {
+    const group = await Group.findById(req.params.id);
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Group not found' });
+    }
+    if (group.admin.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Only admin can edit this group' });
+    }
+    const { name, country } = req.body;
+    if (name) group.name = name.trim();
+    if (country) group.country = country;
+    await group.save();
+    const populated = await Group.findById(group._id)
+      .populate('admin', 'fullName email')
+      .populate('members.user', 'fullName email');
+    res.json({ success: true, group: populated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route  DELETE /api/groups/:id
+// @desc   Delete entire group (admin only)
+router.delete('/:id', protect, async (req, res) => {
+  try {
+    const group = await Group.findById(req.params.id);
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Group not found' });
+    }
+    if (group.admin.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Only admin can delete this group' });
+    }
+    // Also delete all expenses and reports for this group
+    const { default: Expense } = await import('../models/Expense.js');
+    const { default: Report } = await import('../models/Report.js');
+    await Expense.deleteMany({ group: group._id });
+    await Report.deleteMany({ group: group._id });
+    await group.deleteOne();
+    res.json({ success: true, message: 'Group deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;
