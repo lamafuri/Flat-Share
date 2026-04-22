@@ -17,8 +17,8 @@ const app = express();
 // Middleware
 const allowedOrigins = [
   process.env.CLIENT_URL,
-  'https://flat-share-nu.vercel.app',
-  'https://flat-share-app.vercel.app',  // Keep old one for compatibility
+  'https://flat-share-self.vercel.app/',
+
   'http://localhost:5173'
 ];
 app.use(cors({
