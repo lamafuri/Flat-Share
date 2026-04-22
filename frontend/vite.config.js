@@ -6,14 +6,12 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        // Use environment variables with process.env in config files
-        target: process.env.VITE_API_URL + (process.env.VITE_API_PORT || ''),
+        target: 'http://localhost:5000',
         changeOrigin: true
       }
     }
   },
   build: {
-    // Split chunks for better caching
     rollupOptions: {
       output: {
         manualChunks: {
@@ -23,12 +21,9 @@ export default defineConfig({
         }
       }
     },
-    // Target modern browsers for smaller bundle
     target: 'es2020',
-    // Enable source maps for debugging
     sourcemap: false,
   },
-  // Optimize deps
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom', 'axios']
   }
