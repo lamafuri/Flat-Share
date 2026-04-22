@@ -6,7 +6,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        // Use environment variables with process.env in config files
+        target: process.env.VITE_API_URL + (process.env.VITE_API_PORT || ''),
         changeOrigin: true
       }
     }
