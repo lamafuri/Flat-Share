@@ -5,7 +5,6 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Helper: works whether group.admin is a raw ObjectId OR a populated object
 const getAdminId = (group) => {
   return group.admin?._id ? group.admin._id.toString() : group.admin.toString();
 };
@@ -60,7 +59,6 @@ router.post('/', protect, async (req, res) => {
 });
 
 // IMPORTANT: /invitations/mine must be BEFORE /:id
-// @route  GET /api/groups/invitations/mine
 router.get('/invitations/mine', protect, async (req, res) => {
   try {
     const groups = await Group.find({
@@ -151,6 +149,48 @@ router.post('/:id/invite', protect, async (req, res) => {
   }
 });
 
+// @route  POST /api/groups/:id/add-member
+// @desc   Admin directly adds a user to the group (no invite flow)
+router.post('/:id/add-member', protect, async (req, res) => {
+  try {
+    const group = await Group.findById(req.params.id);
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Group not found' });
+    }
+
+    if (group.admin.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Only admin can add members' });
+    }
+
+    const { email, userId } = req.body;
+    let targetUser;
+    if (userId) {
+      targetUser = await User.findById(userId);
+    } else if (email) {
+      targetUser = await User.findOne({ email: email.toLowerCase() });
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'User not found. Make sure they have a registered FlatShare account.' });
+    }
+
+    if (isMember(group, targetUser._id)) {
+      return res.status(400).json({ success: false, message: 'User is already a member of this group' });
+    }
+
+    group.members.push({ user: targetUser._id });
+    await group.save();
+
+    const populated = await Group.findById(group._id)
+      .populate('admin', 'fullName email')
+      .populate('members.user', 'fullName email');
+
+    res.json({ success: true, message: `${targetUser.fullName} added to the group`, group: populated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // @route  POST /api/groups/:id/respond-invite
 router.post('/:id/respond-invite', protect, async (req, res) => {
   try {
@@ -189,16 +229,23 @@ router.delete('/:id/members/:userId', protect, async (req, res) => {
     if (group.admin.toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: 'Only admin can remove members' });
     }
+    if (req.params.userId === getAdminId(group)) {
+      return res.status(400).json({ success: false, message: 'Cannot remove the group admin' });
+    }
     group.members = group.members.filter(m => m.user.toString() !== req.params.userId);
     await group.save();
-    res.json({ success: true, message: 'Member removed' });
+
+    const populated = await Group.findById(group._id)
+      .populate('admin', 'fullName email')
+      .populate('members.user', 'fullName email');
+
+    res.json({ success: true, message: 'Member removed', group: populated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // @route  PUT /api/groups/:id
-// @desc   Edit group name/country (admin only)
 router.put('/:id', protect, async (req, res) => {
   try {
     const group = await Group.findById(req.params.id);
@@ -222,7 +269,6 @@ router.put('/:id', protect, async (req, res) => {
 });
 
 // @route  DELETE /api/groups/:id
-// @desc   Delete entire group (admin only)
 router.delete('/:id', protect, async (req, res) => {
   try {
     const group = await Group.findById(req.params.id);
@@ -232,7 +278,6 @@ router.delete('/:id', protect, async (req, res) => {
     if (group.admin.toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: 'Only admin can delete this group' });
     }
-    // Also delete all expenses and reports for this group
     const { default: Expense } = await import('../models/Expense.js');
     const { default: Report } = await import('../models/Report.js');
     await Expense.deleteMany({ group: group._id });
