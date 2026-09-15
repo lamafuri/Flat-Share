@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
 const createTransporter = () => {
@@ -43,5 +44,5 @@ export const sendOTPEmail = async (email, otp, purpose = 'verify') => {
 };
 
 export const generateOTP = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 1000000).toString();
 };
