@@ -30,7 +30,8 @@ Authentication endpoints are rate limited per client. Exceeding a limit returns
 2. [Users](#users)
 3. [Groups](#groups)
 4. [Expenses](#expenses)
-5. [Reports](#reports)
+5. [Personal Expenses](#personal-expenses)
+6. [Reports](#reports)
 
 ---
 
@@ -652,6 +653,117 @@ Delete a specific expense. Only the expense owner can delete it.
 
 ---
 
+## Personal Expenses
+
+Expenses a user tracks for themselves, outside any group. Users can only see and change their own entries; another user's expense id returns `404`.
+
+`date` values are calendar days sent as `YYYY-MM-DD` and stored at 12:00 UTC, so they fall on the same day in every timezone.
+
+Categories: `food`, `groceries`, `transport`, `bills`, `shopping`, `health`, `education`, `entertainment`, `other`.
+
+### GET `/personal-expenses`
+List the current user's personal expenses, newest first.
+
+**Auth Required:** Yes
+
+**Query Parameters (all optional):**
+| Param      | Description                                   |
+|------------|-----------------------------------------------|
+| `from`     | First day to include (`YYYY-MM-DD`)           |
+| `to`       | Last day to include (`YYYY-MM-DD`)            |
+| `category` | Only this category                            |
+| `limit`    | Page size, 1–200 (default 50)                 |
+| `skip`     | Number of entries to skip (default 0)         |
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "expenses": [
+    {
+      "_id": "6aa8d90f4990e56196b1459d",
+      "user": "6aa8d90a4990e56196b1458a",
+      "title": "Momo lunch",
+      "amount": 250,
+      "category": "food",
+      "date": "2026-09-15T12:00:00.000Z",
+      "note": "with friends",
+      "createdAt": "2026-09-15T05:35:11.919Z",
+      "updatedAt": "2026-09-15T05:35:11.919Z"
+    }
+  ],
+  "total": 1,
+  "totalAmount": 250
+}
+```
+> `total` and `totalAmount` cover every entry matching the filters, not just the returned page.
+
+**Error Responses:**
+- `400` — Invalid `from`/`to` date or category
+
+---
+
+### POST `/personal-expenses`
+Add a personal expense.
+
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "title": "Momo lunch",
+  "amount": 250,
+  "category": "food",
+  "date": "2026-09-15",
+  "note": "with friends"
+}
+```
+> `title` (max 100 chars), `amount` (> 0) and `date` are required. `category` defaults to `other`; `note` is optional (max 500 chars). Amounts are rounded to 2 decimals.
+
+**Response `201`:**
+```json
+{
+  "success": true,
+  "expense": { "_id": "...", "title": "Momo lunch", "amount": 250, "category": "food", "date": "2026-09-15T12:00:00.000Z", "note": "with friends" }
+}
+```
+
+**Error Responses:**
+- `400` — Validation error (message describes the field)
+
+---
+
+### PUT `/personal-expenses/:id`
+Replace a personal expense. Takes the same body and validation as `POST`.
+
+**Auth Required:** Yes (owner only)
+
+**Response `200`:**
+```json
+{ "success": true, "expense": { "_id": "...", "title": "Momo dinner", "amount": 300 } }
+```
+
+**Error Responses:**
+- `400` — Validation error
+- `404` — Expense not found (or not yours)
+
+---
+
+### DELETE `/personal-expenses/:id`
+Delete a personal expense.
+
+**Auth Required:** Yes (owner only)
+
+**Response `200`:**
+```json
+{ "success": true, "message": "Expense deleted" }
+```
+
+**Error Responses:**
+- `404` — Expense not found (or not yours)
+
+---
+
 ## Reports
 
 ### POST `/reports/group/:groupId/generate`
@@ -846,6 +958,19 @@ date         Date
 nepaliDate   { year, month, day, monthName, fullDate }
 totalAmount  Number (auto-calculated sum of items)
 createdAt    Date
+```
+
+### PersonalExpense
+```
+_id          ObjectId
+user         ref: User
+title        String (required, max 100)
+amount       Number (> 0)
+category     'food'|'groceries'|'transport'|'bills'|'shopping'|'health'|'education'|'entertainment'|'other'
+date         Date (calendar day at 12:00 UTC)
+note         String (max 500)
+createdAt    Date
+updatedAt    Date
 ```
 
 ### Report
