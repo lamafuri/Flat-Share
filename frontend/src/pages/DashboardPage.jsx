@@ -1,13 +1,42 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
+import PersonalExpensesPanel from '../components/PersonalExpensesPanel';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
 const COUNTRIES = ['Nepal', 'India', 'Other'];
 
+const TABS = [
+  { key: 'personal', label: 'Personal' },
+  { key: 'groups', label: 'Groups' }
+];
+const TAB_STORAGE_KEY = 'flatshare:dashboardTab';
+
+// The tab lives in the URL (?tab=) so back/forward and shared links work, and
+// the last choice is remembered for the next visit.
+const useDashboardTab = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const fromUrl = searchParams.get('tab');
+
+  let tab = TABS.some(t => t.key === fromUrl) ? fromUrl : null;
+  if (!tab) {
+    try { tab = localStorage.getItem(TAB_STORAGE_KEY); } catch { tab = null; }
+    if (!TABS.some(t => t.key === tab)) tab = 'groups';
+  }
+
+  const setTab = (next) => {
+    try { localStorage.setItem(TAB_STORAGE_KEY, next); } catch { /* storage unavailable */ }
+    setSearchParams({ tab: next }, { replace: true });
+  };
+
+  return [tab, setTab];
+};
+
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [tab, setTab] = useDashboardTab();
+  const personalPanelRef = useRef(null);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -55,22 +84,49 @@ export default function DashboardPage() {
   return (
     <Layout>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 sm:mb-6">
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
         <div>
-          <h1 className="text-lg sm:text-xl font-semibold text-ink-100">My Groups</h1>
-          <p className="text-xs sm:text-sm text-ink-500 mt-0.5 hidden xs:block">Manage your shared living expenses</p>
+          <h1 className="text-lg sm:text-xl font-semibold text-ink-100">Dashboard</h1>
+          <p className="text-xs sm:text-sm text-ink-500 mt-0.5 hidden xs:block">
+            {tab === 'personal' ? 'Track your own day-to-day spending' : 'Manage your shared living expenses'}
+          </p>
         </div>
         <button
-          onClick={() => setShowCreate(true)}
+          onClick={() => (tab === 'personal' ? personalPanelRef.current?.openAdd() : setShowCreate(true))}
           className="btn-primary flex items-center gap-1 sm:gap-1.5"
         >
           <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          <span className="hidden xs:inline">New Group</span>
-          <span className="xs:hidden">New</span>
+          <span className="hidden xs:inline">{tab === 'personal' ? 'Add Expense' : 'New Group'}</span>
+          <span className="xs:hidden">{tab === 'personal' ? 'Add' : 'New'}</span>
         </button>
       </div>
+
+      {/* Personal / Groups switch */}
+      <div className="flex p-1 mb-4 sm:mb-6 bg-ink-900 border border-ink-800 rounded-xl" role="tablist" aria-label="Expense type">
+        {TABS.map(t => (
+          <button
+            key={t.key}
+            role="tab"
+            id={`dashboard-tab-${t.key}`}
+            aria-selected={tab === t.key}
+            aria-controls={`dashboard-panel-${t.key}`}
+            onClick={() => setTab(t.key)}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors touch-manipulation min-h-[40px] ${
+              tab === t.key ? 'bg-ink-800 text-ink-100 shadow-card' : 'text-ink-500 hover:text-ink-300'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'personal' && (
+        <div role="tabpanel" id="dashboard-panel-personal" aria-labelledby="dashboard-tab-personal">
+          <PersonalExpensesPanel ref={personalPanelRef} />
+        </div>
+      )}
 
       {/* Create group modal — bottom sheet on mobile */}
       {showCreate && (
@@ -131,30 +187,34 @@ export default function DashboardPage() {
       )}
 
       {/* Groups list */}
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" aria-label="Loading" />
-        </div>
-      ) : groups.length === 0 ? (
-        <div className="text-center py-12 sm:py-16 card fade-in">
-          <div className="text-4xl mb-3" aria-hidden>🏠</div>
-          <p className="text-ink-300 font-medium text-sm sm:text-base">No groups yet</p>
-          <p className="text-ink-500 text-xs sm:text-sm mt-1">Create a group or wait for an invitation</p>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="btn-primary mt-4 inline-flex items-center gap-1.5"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Create First Group
-          </button>
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 fade-in">
-          {groups.map(group => (
-            <GroupCard key={group._id} group={group} userId={user._id} />
-          ))}
+      {tab === 'groups' && (
+        <div role="tabpanel" id="dashboard-panel-groups" aria-labelledby="dashboard-tab-groups">
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" aria-label="Loading" />
+            </div>
+          ) : groups.length === 0 ? (
+            <div className="text-center py-12 sm:py-16 card fade-in">
+              <div className="text-4xl mb-3" aria-hidden>🏠</div>
+              <p className="text-ink-300 font-medium text-sm sm:text-base">No groups yet</p>
+              <p className="text-ink-500 text-xs sm:text-sm mt-1">Create a group or wait for an invitation</p>
+              <button
+                onClick={() => setShowCreate(true)}
+                className="btn-primary mt-4 inline-flex items-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Create First Group
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 fade-in">
+              {groups.map(group => (
+                <GroupCard key={group._id} group={group} userId={user._id} />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </Layout>
