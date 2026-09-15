@@ -7,7 +7,10 @@ export default function VerifyEmailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { setUser } = useAuth();
-  const email = location.state?.email || '';
+  // The email is passed from registration or sign-in; when the page is opened
+  // directly (bookmark, new tab, cleared history) ask for it instead.
+  const prefilledEmail = location.state?.email || '';
+  const [email, setEmail] = useState(prefilledEmail);
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -32,6 +35,11 @@ export default function VerifyEmailPage() {
   };
 
   const handleResend = async () => {
+    setError('');
+    if (!email) {
+      setError('Enter your email to receive a new code');
+      return;
+    }
     setResending(true);
     try {
       await api.post('/auth/resend-otp', { email, purpose: 'verify' });
@@ -50,8 +58,14 @@ export default function VerifyEmailPage() {
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-success/10 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl">✉️</div>
           <h1 className="text-2xl font-semibold text-ink-100">Check your email</h1>
-          <p className="text-ink-500 text-sm mt-1">We sent a 6-digit code to</p>
-          <p className="text-accent text-sm font-medium">{email}</p>
+          {prefilledEmail ? (
+            <>
+              <p className="text-ink-500 text-sm mt-1">We sent a 6-digit code to</p>
+              <p className="text-accent text-sm font-medium">{prefilledEmail}</p>
+            </>
+          ) : (
+            <p className="text-ink-500 text-sm mt-1">Enter your email and the 6-digit code we sent you</p>
+          )}
         </div>
 
         <div className="card p-6">
@@ -63,6 +77,19 @@ export default function VerifyEmailPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {!prefilledEmail && (
+              <div>
+                <label className="label">Email</label>
+                <input
+                  type="email"
+                  className="input-field"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+            )}
             <div>
               <label className="label">Verification Code</label>
               <input
@@ -75,7 +102,7 @@ export default function VerifyEmailPage() {
                 required
               />
             </div>
-            <button type="submit" className="btn-primary w-full flex justify-center" disabled={loading || otp.length !== 6}>
+            <button type="submit" className="btn-primary w-full flex justify-center" disabled={loading || !email || otp.length !== 6}>
               {loading ? <Spinner /> : 'Verify Email'}
             </button>
           </form>
