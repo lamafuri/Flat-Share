@@ -12,6 +12,13 @@ export const BS_MONTHS = [
   'Kartik', 'Mangsir', 'Poush', 'Magh', 'Falgun', 'Chaitra'
 ];
 
+// Three-letter forms for chart axes. Ashad/Ashwin would both abbreviate to
+// "Ash", so they use Asa/Asw.
+export const BS_MONTHS_SHORT = [
+  'Bai', 'Jes', 'Asa', 'Shr', 'Bha', 'Asw',
+  'Kar', 'Man', 'Pou', 'Mag', 'Fal', 'Cha'
+];
+
 // AD days covered by the tables (BS 2000/01/01 – 2090/12/30). The library
 // returns wrong values for some dates far outside it, so check explicitly.
 const MIN_AD = new Date(1943, 3, 14);
@@ -100,6 +107,13 @@ export const formatBSNumeric = (date) => {
   const bs = toBS(date);
   if (!bs) return adFormat.format(new Date(date));
   return `${bs.year} ${bs.monthName} ${String(bs.day).padStart(2, '0')}`;
+};
+
+// "Bha 5" — compact axis label.
+export const formatBSShort = (date) => {
+  const bs = toBS(date);
+  if (!bs) return adFormatShort.format(new Date(date));
+  return `${BS_MONTHS_SHORT[bs.monthIndex]} ${bs.day}`;
 };
 
 export const formatAD = (date, { withYear = true } = {}) =>

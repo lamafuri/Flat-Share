@@ -68,6 +68,7 @@ export default function Layout({ children }) {
           {/* Desktop Nav links */}
           <nav className="hidden sm:flex items-center gap-1" role="navigation" aria-label="Main navigation">
             <NavLink to="/dashboard" active={isActive('/dashboard')}>Dashboard</NavLink>
+            <NavLink to="/expenses" active={isActive('/expenses')}>Expenses</NavLink>
             <NavLink to="/invitations" active={isActive('/invitations')}>Invitations</NavLink>
           </nav>
 
@@ -153,6 +154,16 @@ export default function Layout({ children }) {
             }
           />
           <BottomNavLink
+            to="/expenses"
+            active={isActive('/expenses')}
+            label="Expenses"
+            icon={
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={isActive('/expenses') ? 2.5 : 1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            }
+          />
+          <BottomNavLink
             to="/invitations"
             active={isActive('/invitations')}
             label="Invitations"
@@ -217,7 +228,7 @@ function BottomNavLink({ to, active, label, icon }) {
   return (
     <Link
       to={to}
-      className={`flex flex-col items-center gap-1 px-5 py-1 rounded-lg transition-colors touch-manipulation ${
+      className={`flex flex-col items-center gap-1 px-3 xs:px-4 py-1 rounded-lg transition-colors touch-manipulation min-w-[64px] ${
         active ? 'text-accent' : 'text-ink-500 hover:text-ink-300'
       }`}
       aria-label={label}
