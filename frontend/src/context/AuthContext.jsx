@@ -5,6 +5,8 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
+    // A cached user without a token is a leftover from an expired session.
+    if (!localStorage.getItem('token')) return null;
     try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
   });
   const [loading, setLoading] = useState(true);
@@ -12,7 +14,11 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const verify = async () => {
       const token = localStorage.getItem('token');
-      if (!token) { setLoading(false); return; }
+      if (!token) {
+        localStorage.removeItem('user');
+        setLoading(false);
+        return;
+      }
       try {
         const { data } = await api.get('/auth/me');
         setUser(data.user);

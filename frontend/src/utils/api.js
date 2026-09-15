@@ -26,10 +26,18 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized
+    // A 401 only means the session expired when the request was sent with a
+    // token. Sign-in attempts also return 401 for wrong credentials; those
+    // must reach the page so it can show the error instead of reloading.
+    const sentToken = Boolean(error.config?.headers?.Authorization)
+    const isLoginRequest = error.config?.url === '/auth/login'
+
+    if (error.response?.status === 401 && sentToken && !isLoginRequest) {
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      localStorage.removeItem('user')
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }
