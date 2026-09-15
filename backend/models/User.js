@@ -28,7 +28,8 @@ const userSchema = new mongoose.Schema({
   otp: {
     code: String,
     expiresAt: Date,
-    purpose: { type: String, enum: ['verify', 'reset'] }
+    purpose: { type: String, enum: ['verify', 'reset'] },
+    attempts: { type: Number, default: 0 }
   }
 }, { timestamps: true });
 

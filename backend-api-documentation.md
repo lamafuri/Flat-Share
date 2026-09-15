@@ -77,7 +77,7 @@ Verify email address with the 6-digit OTP. Returns JWT token on success.
 ```
 
 **Error Responses:**
-- `400` — Invalid or expired OTP
+- `400` — Invalid, expired or locked OTP (see [OTP error codes](#otp-error-codes))
 - `404` — User not found
 
 ---
@@ -163,7 +163,25 @@ Reset password using the OTP received via email.
 ```
 
 **Error Responses:**
-- `400` — Invalid or expired OTP
+- `400` — Missing fields, or invalid, expired or locked OTP (see [OTP error codes](#otp-error-codes))
+
+#### OTP error codes
+OTP failures include a machine-readable `code` alongside the message:
+
+| Code            | Meaning                                                        |
+|-----------------|----------------------------------------------------------------|
+| `OTP_INVALID`   | The submitted code is wrong                                    |
+| `OTP_EXPIRED`   | The code is older than 10 minutes                              |
+| `OTP_NOT_FOUND` | No active code for this purpose — request a new one            |
+| `OTP_LOCKED`    | 5 incorrect attempts were made; the code has been discarded    |
+
+```json
+{
+  "success": false,
+  "code": "OTP_LOCKED",
+  "message": "Too many incorrect attempts. Please request a new code."
+}
+```
 
 ---
 
@@ -778,7 +796,7 @@ fullName    String (required, max 100)
 email       String (required, unique, lowercase)
 password    String (hashed, min 6 chars)
 isVerified  Boolean (default: false)
-otp         { code, expiresAt, purpose: 'verify'|'reset' }
+otp         { code, expiresAt, purpose: 'verify'|'reset', attempts }
 createdAt   Date
 updatedAt   Date
 ```

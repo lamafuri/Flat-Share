@@ -6,8 +6,44 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const MAX_OTP_ATTEMPTS = 5;
+
 const normalizeEmail = (email) =>
   typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+// Checks a submitted OTP against the one stored for the user. Every attempt
+// is counted atomically before comparing, and the code is discarded once
+// MAX_OTP_ATTEMPTS is reached, so a 6-digit code cannot be brute-forced.
+// Returns null when the OTP is valid, otherwise an error payload.
+const checkOTP = async (user, otp, purpose) => {
+  if (!user.otp?.code || user.otp.purpose !== purpose) {
+    return { code: 'OTP_NOT_FOUND', message: 'No active code. Please request a new one.' };
+  }
+
+  if (new Date() > user.otp.expiresAt) {
+    return { code: 'OTP_EXPIRED', message: 'OTP has expired. Please request a new one.' };
+  }
+
+  const updated = await User.findOneAndUpdate(
+    { _id: user._id, 'otp.purpose': purpose, 'otp.attempts': { $not: { $gte: MAX_OTP_ATTEMPTS } } },
+    { $inc: { 'otp.attempts': 1 } },
+    { new: true }
+  );
+
+  if (!updated) {
+    return { code: 'OTP_LOCKED', message: 'Too many incorrect attempts. Please request a new code.' };
+  }
+
+  if (updated.otp.code !== String(otp)) {
+    if (updated.otp.attempts >= MAX_OTP_ATTEMPTS) {
+      await User.updateOne({ _id: user._id }, { $unset: { otp: 1 } });
+      return { code: 'OTP_LOCKED', message: 'Too many incorrect attempts. Please request a new code.' };
+    }
+    return { code: 'OTP_INVALID', message: 'Invalid OTP' };
+  }
+
+  return null;
+};
 
 // @route  POST /api/auth/register
 // @desc   Register user
@@ -73,16 +109,9 @@ router.post('/verify-email', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email already verified' });
     }
 
-    if (!user.otp || user.otp.purpose !== 'verify') {
-      return res.status(400).json({ success: false, message: 'Invalid OTP request' });
-    }
-
-    if (user.otp.code !== otp) {
-      return res.status(400).json({ success: false, message: 'Invalid OTP' });
-    }
-
-    if (new Date() > user.otp.expiresAt) {
-      return res.status(400).json({ success: false, message: 'OTP has expired' });
+    const otpError = await checkOTP(user, otp, 'verify');
+    if (otpError) {
+      return res.status(400).json({ success: false, ...otpError });
     }
 
     user.isVerified = true;
@@ -173,16 +202,9 @@ router.post('/reset-password', async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    if (!user.otp || user.otp.purpose !== 'reset') {
-      return res.status(400).json({ success: false, message: 'Invalid reset request' });
-    }
-
-    if (user.otp.code !== otp) {
-      return res.status(400).json({ success: false, message: 'Invalid OTP' });
-    }
-
-    if (new Date() > user.otp.expiresAt) {
-      return res.status(400).json({ success: false, message: 'OTP has expired' });
+    const otpError = await checkOTP(user, otp, 'reset');
+    if (otpError) {
+      return res.status(400).json({ success: false, ...otpError });
     }
 
     user.password = newPassword;
