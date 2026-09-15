@@ -9,6 +9,8 @@ A clean, production-ready expense-sharing web app for people living together in 
 - 🔐 **Auth** — Register, email OTP verification, login, forgot password
 - 🏠 **Groups** — Create flat groups, invite members by name/email, accept/reject invitations
 - 🛒 **Inventory** — Each member adds their grocery & household purchases (pre-populated Nepali items list + "Other")
+- 💸 **Personal Expenses** — Track your own day-to-day spending by category, month by month (BS calendar)
+- 📊 **Expense Insights** — Charts of your personal spending plus what you paid in groups, over this month, last month, 3/6 months, this year or a custom range, compared with the previous period
 - 📅 **Nepali Calendar** — Dates shown in Bikram Sambat (BS) for Nepal groups
 - 🧾 **Auto Bill** — Admin enters flat rent → system calculates everyone's share using the exact formula:
   - `Total Cost = Flat Rent + All Expenses`
@@ -24,6 +26,8 @@ A clean, production-ready expense-sharing web app for people living together in 
 | Layer     | Tech                                          |
 |-----------|-----------------------------------------------|
 | Frontend  | React 18 + Vite + Tailwind CSS + React Router |
+| Charts    | Recharts                                      |
+| Calendar  | nepali-date-converter (Bikram Sambat tables)  |
 | Backend   | Node.js + Express + MongoDB + Mongoose        |
 | Auth      | JWT (httpOnly cookies) + bcryptjs             |
 | Email     | Nodemailer (Gmail)                            |
@@ -142,7 +146,19 @@ npm run dev
 2. Search by name or type an email
 3. Invitee gets a pending invitation they can accept/reject
 
-### Adding Expenses
+### Tracking Personal Expenses
+1. Open **Dashboard → Personal**
+2. Tap **Add Expense**, enter the amount, pick a category and (optionally) a description, date and note
+3. Browse months with the arrows; tap an expense to edit or delete it (deletes can be undone)
+
+### Viewing Expense Insights
+1. Open **Expenses** from the navigation (or the card on your Profile)
+2. Choose a time range (months follow the Bikram Sambat calendar) and whether to include personal spending, group spending or both
+3. See your total and daily average, how it compares with the previous period, spending over time, your spending pace, where the money went, and every transaction
+
+> Group spending in insights counts only the items **you** added in your groups — what you paid, not your share of the final bill.
+
+### Adding Group Expenses
 1. Click **Add Expenses** inside a group
 2. Select items from the dropdown (common Nepali household items included)
 3. Enter price for each item
