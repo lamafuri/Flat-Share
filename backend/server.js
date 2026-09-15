@@ -18,13 +18,16 @@ const app = express();
 // X-Forwarded-For. Trust exactly that one hop so req.ip is the client's IP.
 app.set('trust proxy', 1);
 
-// Get allowed origins from environment or use defaults
-const CLIENT_URL = process.env.CLIENT_URL || 'https://flat-share-self.vercel.app';
-console.log('CORS allowing origin:', CLIENT_URL);
+// CLIENT_URL may hold several comma-separated origins (e.g. the production
+// site and a preview deployment). Browsers send the Origin header without a
+// trailing slash, so strip any from the configured values to avoid mismatches.
+const allowedOrigins = (process.env.CLIENT_URL || 'https://flat-share-self.vercel.app')
+  .split(',')
+  .map(origin => origin.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
 
-// SIMPLE CORS - Just allow your frontend
 app.use(cors({
-  origin: CLIENT_URL,  // Use the exact URL from env
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -66,7 +69,7 @@ mongoose.connect(process.env.MONGODB_URI)
     console.log('✅ MongoDB connected');
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`✅ CORS enabled for: ${CLIENT_URL}`);
+      console.log(`✅ CORS enabled for: ${allowedOrigins.join(', ')}`);
     });
   })
   .catch(err => {

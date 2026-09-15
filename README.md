@@ -98,6 +98,7 @@ JWT_EXPIRES_IN=7d
 EMAIL_USER=your_gmail@gmail.com
 EMAIL_PASS=your_16_char_app_password
 
+# Frontend origin(s) allowed by CORS; comma-separate multiple origins
 CLIENT_URL=http://localhost:5173
 NODE_ENV=development
 ```
