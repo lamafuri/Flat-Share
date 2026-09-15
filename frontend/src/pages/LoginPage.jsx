@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../utils/api';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -17,6 +18,17 @@ export default function LoginPage() {
       await login(form.email, form.password);
       navigate('/dashboard');
     } catch (err) {
+      if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+        // The original code has likely expired, so send a fresh one before
+        // taking the user to the verification screen.
+        try {
+          await api.post('/auth/resend-otp', { email: form.email, purpose: 'verify' });
+        } catch {
+          // The verification page lets the user request another code.
+        }
+        navigate('/verify-email', { state: { email: form.email } });
+        return;
+      }
       setError(err.response?.data?.message || 'Login failed');
     } finally {
       setLoading(false);

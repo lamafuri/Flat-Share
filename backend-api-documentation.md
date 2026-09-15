@@ -129,7 +129,7 @@ Login with email and password.
 
 **Error Responses:**
 - `401` — Invalid credentials
-- `403` — Email not verified
+- `403` — Email not verified (`"code": "EMAIL_NOT_VERIFIED"`); only returned when the password is correct
 
 ---
 

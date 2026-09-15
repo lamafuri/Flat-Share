@@ -155,7 +155,7 @@ router.post('/login', authLimiter, async (req, res) => {
     }
 
     if (!user.isVerified) {
-      return res.status(403).json({ success: false, message: 'Please verify your email first' });
+      return res.status(403).json({ success: false, code: 'EMAIL_NOT_VERIFIED', message: 'Please verify your email first' });
     }
 
     sendTokenResponse(user, 200, res);
