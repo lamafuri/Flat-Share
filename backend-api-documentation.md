@@ -31,7 +31,8 @@ Authentication endpoints are rate limited per client. Exceeding a limit returns
 3. [Groups](#groups)
 4. [Expenses](#expenses)
 5. [Personal Expenses](#personal-expenses)
-6. [Reports](#reports)
+6. [Insights](#insights)
+7. [Reports](#reports)
 
 ---
 
@@ -761,6 +762,55 @@ Delete a personal expense.
 
 **Error Responses:**
 - `404` — Expense not found (or not yours)
+
+---
+
+## Insights
+
+### GET `/insights/expenses?from=YYYY-MM-DD&to=YYYY-MM-DD`
+The current user's spending in a date range, combining their personal expenses with the items **they** bought in groups. Other members' group expenses are never included.
+
+**Auth Required:** Yes
+
+**Query Parameters:**
+| Param  | Description                                  |
+|--------|----------------------------------------------|
+| `from` | First day of the range (required)            |
+| `to`   | Last day of the range (required, max 3 years after `from`) |
+
+> Group expense dates are instants, while clients group by their local calendar day. The query is widened by 14 hours on each side so no day is cut off in any timezone. **Clients should drop entries whose local day falls outside the requested range.**
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "entries": [
+    {
+      "id": "6aa8d90f4990e56196b1459d",
+      "source": "personal",
+      "title": "Bus fare",
+      "amount": 35,
+      "category": "transport",
+      "note": "",
+      "date": "2026-09-14T12:00:00.000Z"
+    },
+    {
+      "id": "6aa8da114990e56196b14601-0",
+      "source": "group",
+      "title": "LPG Gas",
+      "amount": 1900,
+      "date": "2026-09-10T00:00:00.000Z",
+      "expenseId": "6aa8da114990e56196b14601",
+      "groupId": "6aa8da0f4990e56196b145f2",
+      "groupName": "Kirtipur Flat"
+    }
+  ]
+}
+```
+> Entries are sorted newest first. Group expenses are returned one entry per item.
+
+**Error Responses:**
+- `400` — Missing/invalid dates, `from` after `to`, or range longer than 3 years
 
 ---
 

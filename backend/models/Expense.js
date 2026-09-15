@@ -48,5 +48,8 @@ expenseSchema.pre('save', function(next) {
   next();
 });
 
+// Per-user spending lookups (expense insights)
+expenseSchema.index({ user: 1, date: -1 });
+
 const Expense = mongoose.model('Expense', expenseSchema);
 export default Expense;
