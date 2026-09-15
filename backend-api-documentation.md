@@ -6,6 +6,22 @@ All authenticated endpoints require a JWT token either via:
 - **httpOnly Cookie** named `token` (preferred), OR
 - **Authorization Header**: `Authorization: Bearer <token>`
 
+### Rate Limits
+Authentication endpoints are rate limited per client. Exceeding a limit returns
+`429 Too Many Requests` with standard `RateLimit` / `RateLimit-Policy` headers:
+
+| Endpoints                                         | Limit                                              |
+|---------------------------------------------------|----------------------------------------------------|
+| `login`, `verify-email`, `reset-password`         | 30 requests / 15 min per client                    |
+| `register`, `forgot-password`, `resend-otp`       | 5 requests / hour per client + email address, and 30 / hour per client overall |
+
+```json
+{
+  "success": false,
+  "message": "Too many attempts. Please try again in a few minutes."
+}
+```
+
 ---
 
 ## Table of Contents

@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import { sendOTPEmail, generateOTP } from '../utils/email.js';
 import { sendTokenResponse } from '../utils/jwt.js';
 import { protect } from '../middleware/auth.js';
+import { authLimiter, emailLimiter, emailBurstLimiter } from '../middleware/rateLimit.js';
 
 const router = express.Router();
 
@@ -47,7 +48,7 @@ const checkOTP = async (user, otp, purpose) => {
 
 // @route  POST /api/auth/register
 // @desc   Register user
-router.post('/register', async (req, res) => {
+router.post('/register', emailBurstLimiter, emailLimiter, async (req, res) => {
   try {
     const { fullName, password } = req.body;
     const email = normalizeEmail(req.body.email);
@@ -91,7 +92,7 @@ router.post('/register', async (req, res) => {
 
 // @route  POST /api/auth/verify-email
 // @desc   Verify email with OTP
-router.post('/verify-email', async (req, res) => {
+router.post('/verify-email', authLimiter, async (req, res) => {
   try {
     const { otp } = req.body;
     const email = normalizeEmail(req.body.email);
@@ -126,7 +127,7 @@ router.post('/verify-email', async (req, res) => {
 
 // @route  POST /api/auth/login
 // @desc   Login user
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   try {
     const { password } = req.body;
     const email = normalizeEmail(req.body.email);
@@ -157,7 +158,7 @@ router.post('/login', async (req, res) => {
 
 // @route  POST /api/auth/forgot-password
 // @desc   Send password reset OTP
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', emailBurstLimiter, emailLimiter, async (req, res) => {
   try {
     const email = normalizeEmail(req.body.email);
 
@@ -188,7 +189,7 @@ router.post('/forgot-password', async (req, res) => {
 
 // @route  POST /api/auth/reset-password
 // @desc   Reset password with OTP
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', authLimiter, async (req, res) => {
   try {
     const { otp, newPassword } = req.body;
     const email = normalizeEmail(req.body.email);
@@ -219,7 +220,7 @@ router.post('/reset-password', async (req, res) => {
 
 // @route  POST /api/auth/resend-otp
 // @desc   Resend OTP
-router.post('/resend-otp', async (req, res) => {
+router.post('/resend-otp', emailBurstLimiter, emailLimiter, async (req, res) => {
   try {
     const { purpose } = req.body;
     const email = normalizeEmail(req.body.email);
