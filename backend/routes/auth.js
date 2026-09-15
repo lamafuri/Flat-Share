@@ -6,17 +6,21 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const normalizeEmail = (email) =>
+  typeof email === 'string' ? email.trim().toLowerCase() : '';
+
 // @route  POST /api/auth/register
 // @desc   Register user
 router.post('/register', async (req, res) => {
   try {
-    const { fullName, email, password } = req.body;
+    const { fullName, password } = req.body;
+    const email = normalizeEmail(req.body.email);
 
     if (!fullName || !email || !password) {
       return res.status(400).json({ success: false, message: 'All fields are required' });
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ success: false, message: 'Email already registered' });
     }
@@ -24,7 +28,7 @@ router.post('/register', async (req, res) => {
     const otp = generateOTP();
     const user = await User.create({
       fullName,
-      email: email.toLowerCase(),
+      email,
       password,
       otp: {
         code: otp,
@@ -53,9 +57,14 @@ router.post('/register', async (req, res) => {
 // @desc   Verify email with OTP
 router.post('/verify-email', async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const { otp } = req.body;
+    const email = normalizeEmail(req.body.email);
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+    }
+
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -90,13 +99,14 @@ router.post('/verify-email', async (req, res) => {
 // @desc   Login user
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body;
+    const email = normalizeEmail(req.body.email);
 
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Email and password required' });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    const user = await User.findOne({ email }).select('+password');
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
@@ -120,9 +130,13 @@ router.post('/login', async (req, res) => {
 // @desc   Send password reset OTP
 router.post('/forgot-password', async (req, res) => {
   try {
-    const { email } = req.body;
+    const email = normalizeEmail(req.body.email);
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ success: false, message: 'No account with that email' });
     }
@@ -147,9 +161,14 @@ router.post('/forgot-password', async (req, res) => {
 // @desc   Reset password with OTP
 router.post('/reset-password', async (req, res) => {
   try {
-    const { email, otp, newPassword } = req.body;
+    const { otp, newPassword } = req.body;
+    const email = normalizeEmail(req.body.email);
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Email, OTP and new password are required' });
+    }
+
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -180,9 +199,14 @@ router.post('/reset-password', async (req, res) => {
 // @desc   Resend OTP
 router.post('/resend-otp', async (req, res) => {
   try {
-    const { email, purpose } = req.body;
+    const { purpose } = req.body;
+    const email = normalizeEmail(req.body.email);
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
