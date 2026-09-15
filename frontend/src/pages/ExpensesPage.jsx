@@ -112,6 +112,7 @@ export default function ExpensesPage() {
     const summary = summarize(current);
     return {
       current,
+      hasPreviousSpending: previous.length > 0,
       summary,
       granularity,
       buckets: bucketize(current, range, granularity),
@@ -203,12 +204,15 @@ export default function ExpensesPage() {
           </div>
         ) : view && (
           <div className={`space-y-4 sm:space-y-5 transition-opacity ${refreshing ? 'opacity-60' : ''}`} aria-busy={refreshing}>
-            <SummaryTiles
-              view={view}
-              range={range}
-              source={source}
-              previousName={previousName}
-            />
+            {/* All-zero tiles add nothing for someone who has not tracked anything yet. */}
+            {(view.current.length > 0 || view.hasPreviousSpending) && (
+              <SummaryTiles
+                view={view}
+                range={range}
+                source={source}
+                previousName={previousName}
+              />
+            )}
 
             {view.current.length === 0 ? (
               <div className="card text-center py-10 px-4 fade-in">
