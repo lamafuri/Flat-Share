@@ -76,7 +76,7 @@ export default function ForgotPasswordPage() {
 
           {step === STEP.OTP && (
             <form onSubmit={verifyOTP} className="space-y-4">
-              <p className="text-sm text-ink-400">Code sent to <span className="text-accent">{email}</span></p>
+              <p className="text-sm text-ink-400">If an account exists for <span className="text-accent">{email}</span>, we've sent it a code.</p>
               <div>
                 <label className="label">6-Digit Code</label>
                 <input type="text" className="input-field text-center text-xl tracking-widest font-mono" placeholder="Enter 6 digit OTP" maxLength={6} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))} required />

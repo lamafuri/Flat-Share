@@ -132,7 +132,7 @@ Login with email and password.
 ---
 
 ### POST `/auth/forgot-password`
-Send a password reset OTP to the user's email.
+Send a password reset OTP to the user's email. The response is the same whether or not an account exists, so the endpoint cannot be used to check which emails are registered.
 
 **Auth Required:** No
 
@@ -147,12 +147,13 @@ Send a password reset OTP to the user's email.
 ```json
 {
   "success": true,
-  "message": "Password reset OTP sent to your email"
+  "message": "If an account exists for that email, a reset code has been sent."
 }
 ```
 
 **Error Responses:**
-- `404` — No account with that email
+- `400` — Email is required
+- `429` — Rate limit exceeded
 
 ---
 
@@ -202,7 +203,7 @@ OTP failures include a machine-readable `code` alongside the message:
 ---
 
 ### POST `/auth/resend-otp`
-Resend OTP for email verification or password reset.
+Resend OTP for email verification or password reset. A code is only sent when the account exists (and, for `verify`, is not yet verified), but the response is always the same.
 
 **Auth Required:** No
 
@@ -219,9 +220,13 @@ Resend OTP for email verification or password reset.
 ```json
 {
   "success": true,
-  "message": "OTP resent successfully"
+  "message": "If this email needs a code, a new one has been sent."
 }
 ```
+
+**Error Responses:**
+- `400` — Email is required, or invalid `purpose`
+- `429` — Rate limit exceeded
 
 ---
 

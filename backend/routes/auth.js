@@ -166,22 +166,22 @@ router.post('/forgot-password', emailBurstLimiter, emailLimiter, async (req, res
       return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
+    // Respond identically whether or not the account exists so this endpoint
+    // cannot be used to discover which emails are registered.
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'No account with that email' });
+    if (user) {
+      const otp = generateOTP();
+      user.otp = {
+        code: otp,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        purpose: 'reset'
+      };
+      await user.save();
+
+      await sendOTPEmail(email, otp, 'reset');
     }
 
-    const otp = generateOTP();
-    user.otp = {
-      code: otp,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-      purpose: 'reset'
-    };
-    await user.save();
-
-    await sendOTPEmail(email, otp, 'reset');
-
-    res.json({ success: true, message: 'Password reset OTP sent to your email' });
+    res.json({ success: true, message: 'If an account exists for that email, a reset code has been sent.' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -200,7 +200,7 @@ router.post('/reset-password', authLimiter, async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res.status(400).json({ success: false, code: 'OTP_NOT_FOUND', message: 'No active code. Please request a new one.' });
     }
 
     const otpError = await checkOTP(user, otp, 'reset');
@@ -222,29 +222,34 @@ router.post('/reset-password', authLimiter, async (req, res) => {
 // @desc   Resend OTP
 router.post('/resend-otp', emailBurstLimiter, emailLimiter, async (req, res) => {
   try {
-    const { purpose } = req.body;
+    const purpose = req.body.purpose || 'verify';
     const email = normalizeEmail(req.body.email);
 
     if (!email) {
       return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+    if (!['verify', 'reset'].includes(purpose)) {
+      return res.status(400).json({ success: false, message: 'Invalid purpose' });
     }
 
-    const otp = generateOTP();
-    user.otp = {
-      code: otp,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-      purpose: purpose || 'verify'
-    };
-    await user.save();
+    // Only send when there is something to do (an existing account, and for
+    // verification an unverified one), but always give the same response so
+    // account existence and verification status are not disclosed.
+    const user = await User.findOne({ email });
+    if (user && !(purpose === 'verify' && user.isVerified)) {
+      const otp = generateOTP();
+      user.otp = {
+        code: otp,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        purpose
+      };
+      await user.save();
 
-    await sendOTPEmail(email, otp, purpose || 'verify');
+      await sendOTPEmail(email, otp, purpose);
+    }
 
-    res.json({ success: true, message: 'OTP resent successfully' });
+    res.json({ success: true, message: 'If this email needs a code, a new one has been sent.' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
