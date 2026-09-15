@@ -149,8 +149,15 @@
   .table-responsive::-webkit-scrollbar { display: none; }
 
   /* ── Page padding accounting for bottom nav ──────── */
+  /* Clears the 64px mobile bottom nav plus the device safe area. Owns the
+     bottom padding, so don't combine it with py-* utilities (they win). */
   .page-content {
-    @apply pb-20 sm:pb-6;
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+  @screen sm {
+    .page-content {
+      padding-bottom: 1.5rem;
+    }
   }
 }
 

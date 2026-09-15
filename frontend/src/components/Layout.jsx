@@ -135,7 +135,7 @@ export default function Layout({ children }) {
       </header>
 
       {/* ── Main Content ── */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-6 page-content fade-in">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 pt-4 sm:pt-6 page-content fade-in">
         {children}
       </main>
 
