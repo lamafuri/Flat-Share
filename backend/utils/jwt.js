@@ -6,14 +6,25 @@ export const generateToken = (id) => {
   });
 };
 
+// In production the frontend (Vercel) and API (Render) are on different
+// sites, so a SameSite=Strict/Lax cookie is never sent with API requests.
+// Cross-site cookies must be SameSite=None, which browsers only accept
+// together with Secure. Locally both run on localhost, where Lax works.
+export const authCookieOptions = () => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax'
+  };
+};
+
 export const sendTokenResponse = (user, statusCode, res) => {
   const token = generateToken(user._id);
 
   const cookieOptions = {
-    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
+    ...authCookieOptions(),
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   };
 
   res.status(statusCode)

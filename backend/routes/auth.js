@@ -1,7 +1,7 @@
 import express from 'express';
 import User from '../models/User.js';
 import { sendOTPEmail, generateOTP } from '../utils/email.js';
-import { sendTokenResponse } from '../utils/jwt.js';
+import { sendTokenResponse, authCookieOptions } from '../utils/jwt.js';
 import { protect } from '../middleware/auth.js';
 import { authLimiter, emailLimiter, emailBurstLimiter } from '../middleware/rateLimit.js';
 
@@ -266,7 +266,8 @@ router.post('/resend-otp', emailBurstLimiter, emailLimiter, async (req, res) => 
 // @route  POST /api/auth/logout
 // @desc   Logout user
 router.post('/logout', protect, (req, res) => {
-  res.cookie('token', '', { expires: new Date(0), httpOnly: true });
+  // Browsers only remove a cookie when the attributes match the ones it was set with.
+  res.clearCookie('token', authCookieOptions());
   res.json({ success: true, message: 'Logged out successfully' });
 });
 
