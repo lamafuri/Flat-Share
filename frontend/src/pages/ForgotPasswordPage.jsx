@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
+import ServerWakeNotice from '../components/ServerWakeNotice';
 
 const STEP = { EMAIL: 1, OTP: 2, PASSWORD: 3, DONE: 4 };
 
@@ -139,6 +140,8 @@ export default function ForgotPasswordPage() {
               <button onClick={() => navigate('/login')} className="btn-primary w-full">Go to Login</button>
             </div>
           )}
+
+          <ServerWakeNotice active={loading || resending} />
         </div>
 
         <p className="text-center mt-4">

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
+import ServerWakeNotice from '../components/ServerWakeNotice';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -99,6 +100,7 @@ export default function RegisterPage() {
               {loading ? <Spinner /> : 'Create Account'}
             </button>
           </form>
+          <ServerWakeNotice active={loading} />
         </div>
 
         <p className="text-center text-sm text-ink-500 mt-4">

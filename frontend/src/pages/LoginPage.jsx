@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
+import ServerWakeNotice from '../components/ServerWakeNotice';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -82,6 +83,7 @@ export default function LoginPage() {
               {loading ? <Spinner /> : 'Sign In'}
             </button>
           </form>
+          <ServerWakeNotice active={loading} />
         </div>
 
         <p className="text-center text-sm text-ink-500 mt-4">

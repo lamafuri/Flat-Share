@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import ServerWakeNotice from '../components/ServerWakeNotice';
 
 export default function VerifyEmailPage() {
   const navigate = useNavigate();
@@ -114,6 +115,7 @@ export default function VerifyEmailPage() {
           >
             {resending ? 'Sending...' : "Didn't get it? Resend code"}
           </button>
+          <ServerWakeNotice active={loading || resending} />
         </div>
       </div>
     </div>
