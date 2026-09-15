@@ -510,6 +510,7 @@ Accept or reject a group invitation.
 ```
 
 **Error Responses:**
+- `400` — `action` is not `accept` or `reject`
 - `404` — No pending invitation found
 
 ---

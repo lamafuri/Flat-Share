@@ -179,6 +179,13 @@ router.post('/:id/add-member', protect, async (req, res) => {
     }
 
     group.members.push({ user: targetUser._id });
+
+    // Close any pending invitation; accepting it later would add the user twice.
+    group.invitations.forEach(inv => {
+      if (inv.user?.toString() === targetUser._id.toString() && inv.status === 'pending') {
+        inv.status = 'accepted';
+      }
+    });
     await group.save();
 
     const populated = await Group.findById(group._id)
@@ -195,20 +202,24 @@ router.post('/:id/add-member', protect, async (req, res) => {
 router.post('/:id/respond-invite', protect, async (req, res) => {
   try {
     const { action } = req.body;
+    if (!['accept', 'reject'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'Action must be accept or reject' });
+    }
+
     const group = await Group.findById(req.params.id);
     if (!group) {
       return res.status(404).json({ success: false, message: 'Group not found' });
     }
 
     const invitation = group.invitations.find(
-      inv => inv.user.toString() === req.user._id.toString() && inv.status === 'pending'
+      inv => inv.user?.toString() === req.user._id.toString() && inv.status === 'pending'
     );
     if (!invitation) {
       return res.status(404).json({ success: false, message: 'No pending invitation found' });
     }
 
     invitation.status = action === 'accept' ? 'accepted' : 'rejected';
-    if (action === 'accept') {
+    if (action === 'accept' && !isMember(group, req.user._id)) {
       group.members.push({ user: req.user._id });
     }
     await group.save();
