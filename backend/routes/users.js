@@ -4,14 +4,20 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // @route  GET /api/users/search
 // @desc   Search users by name or email
 router.get('/search', protect, async (req, res) => {
   try {
-    const { q } = req.query;
-    if (!q || q.length < 2) {
+    const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : '';
+    if (q.length < 2) {
       return res.json({ success: true, users: [] });
     }
+
+    // Match the search text literally; raw user input must never be
+    // interpreted as a regular expression.
+    const pattern = escapeRegex(q);
 
     const users = await User.find({
       $and: [
@@ -19,8 +25,8 @@ router.get('/search', protect, async (req, res) => {
         { isVerified: true },
         {
           $or: [
-            { fullName: { $regex: q, $options: 'i' } },
-            { email: { $regex: q, $options: 'i' } }
+            { fullName: { $regex: pattern, $options: 'i' } },
+            { email: { $regex: pattern, $options: 'i' } }
           ]
         }
       ]
