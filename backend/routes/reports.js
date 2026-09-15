@@ -85,7 +85,9 @@ router.post('/group/:groupId/generate', protect, async (req, res) => {
       const itemsList = memberExpenseList.flatMap(exp =>
         exp.items.map(item => ({
           date: exp.date,
-          nepaliDate: exp.nepaliDate?.fullDate || '',
+          // Recompute rather than trusting the stored value: expenses saved
+          // before the BS conversion fix carry incorrect dates.
+          nepaliDate: group.country === 'Nepal' ? adToBS(exp.date)?.fullDate || '' : '',
           itemName: item.itemName,
           price: item.price
         }))
@@ -111,9 +113,9 @@ router.post('/group/:groupId/generate', protect, async (req, res) => {
       const actualEnd = endDate ? new Date(endDate) : new Date();
       const bsStart = adToBS(actualStart);
       const bsEnd = adToBS(actualEnd);
-      startNepaliDate = bsStart.fullDate;
-      endNepaliDate = bsEnd.fullDate;
-      label = `${bsStart.monthName} ${bsStart.year}`;
+      startNepaliDate = bsStart?.fullDate || '';
+      endNepaliDate = bsEnd?.fullDate || '';
+      label = bsStart ? `${bsStart.monthName} ${bsStart.year}` : '';
     } else {
       const d = new Date();
       label = d.toLocaleString('default', { month: 'long', year: 'numeric' });
