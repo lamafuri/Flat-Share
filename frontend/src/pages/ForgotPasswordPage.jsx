@@ -12,7 +12,9 @@ export default function ForgotPasswordPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const sendOTP = async (e) => {
     e.preventDefault();
@@ -26,10 +28,24 @@ export default function ForgotPasswordPage() {
     } finally { setLoading(false); }
   };
 
+  const resendOTP = async () => {
+    setError('');
+    setNotice('');
+    setResending(true);
+    try {
+      await api.post('/auth/forgot-password', { email });
+      setOtp('');
+      setNotice('A new code has been sent.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to resend code');
+    } finally { setResending(false); }
+  };
+
   const verifyOTP = (e) => {
     e.preventDefault();
     if (otp.length !== 6) { setError('Enter 6-digit OTP'); return; }
     setError('');
+    setNotice('');
     setStep(STEP.PASSWORD);
   };
 
@@ -44,6 +60,12 @@ export default function ForgotPasswordPage() {
       setStep(STEP.DONE);
     } catch (err) {
       setError(err.response?.data?.message || 'Reset failed');
+      // The code is only checked on submit, so send the user back to fix or
+      // re-request it rather than leaving them stuck on the password form.
+      if (err.response?.data?.code?.startsWith('OTP_')) {
+        setOtp('');
+        setStep(STEP.OTP);
+      }
     } finally { setLoading(false); }
   };
 
@@ -61,6 +83,7 @@ export default function ForgotPasswordPage() {
 
         <div className="card p-6">
           {error && <div className="bg-danger/10 border border-danger/20 text-danger text-sm px-3 py-2.5 rounded-lg mb-4">{error}</div>}
+          {notice && <div className="bg-success/10 border border-success/20 text-success text-sm px-3 py-2.5 rounded-lg mb-4">{notice}</div>}
 
           {step === STEP.EMAIL && (
             <form onSubmit={sendOTP} className="space-y-4">
@@ -82,6 +105,14 @@ export default function ForgotPasswordPage() {
                 <input type="text" className="input-field text-center text-xl tracking-widest font-mono" placeholder="Enter 6 digit OTP" maxLength={6} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))} required />
               </div>
               <button className="btn-primary w-full">Continue</button>
+              <button
+                type="button"
+                onClick={resendOTP}
+                disabled={resending}
+                className="w-full text-sm text-ink-400 hover:text-ink-200 transition-colors"
+              >
+                {resending ? 'Sending...' : "Didn't get it? Resend code"}
+              </button>
             </form>
           )}
 
