@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../utils/api";
 import { COMMON_ITEMS } from "../utils/items";
+import { toISODate } from "../utils/nepaliDate";
 
 export default function AddExpenseModal({ groupId, onClose, onAdded }) {
   const [items, setItems] = useState([{ itemName: "", price: "" }]);
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(() => toISODate(new Date()));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const modalRef = useRef(null);

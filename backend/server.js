@@ -9,6 +9,8 @@ import groupRoutes from './routes/groups.js';
 import expenseRoutes from './routes/expenses.js';
 import reportRoutes from './routes/reports.js';
 import userRoutes from './routes/users.js';
+import personalExpenseRoutes from './routes/personalExpenses.js';
+import insightRoutes from './routes/insights.js';
 import { isEmailConfigured } from './utils/email.js';
 
 dotenv.config();
@@ -52,6 +54,8 @@ app.use('/api/groups', groupRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/personal-expenses', personalExpenseRoutes);
+app.use('/api/insights', insightRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

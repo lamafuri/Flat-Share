@@ -21,7 +21,8 @@
     "express-rate-limit": "^8.7.0",
     "express-validator": "^7.0.1",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.0.3"
+    "mongoose": "^8.0.3",
+    "nepali-date-converter": "^3.4.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

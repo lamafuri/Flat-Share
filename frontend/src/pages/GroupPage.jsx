@@ -6,6 +6,7 @@ import ReportView from '../components/ReportView';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useSwipe } from '../utils/gestures';
+import { formatAD, formatBSNumeric } from '../utils/nepaliDate';
 
 const TABS = ['my', 'all', 'report'];
 const TAB_LABELS = { my: 'My Items', all: 'All Members', report: 'Report' };
@@ -692,10 +693,9 @@ function EmptyState({ icon, title, subtitle, action }) {
 
 function ExpenseCard({ expense, canDelete, onDelete, country, compact }) {
   const [expanded, setExpanded] = useState(false);
-  const displayDate =
-    country === 'Nepal' && expense.nepaliDate?.fullDate
-      ? expense.nepaliDate.fullDate
-      : new Date(expense.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+  // Derive the BS date from the expense date: BS dates stored before the
+  // conversion fix are incorrect.
+  const displayDate = country === 'Nepal' ? formatBSNumeric(expense.date) : formatAD(expense.date);
 
   return (
     <div className={`card ${compact ? 'p-3' : 'p-3 sm:p-4'}`}>

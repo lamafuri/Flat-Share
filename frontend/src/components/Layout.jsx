@@ -68,6 +68,7 @@ export default function Layout({ children }) {
           {/* Desktop Nav links */}
           <nav className="hidden sm:flex items-center gap-1" role="navigation" aria-label="Main navigation">
             <NavLink to="/dashboard" active={isActive('/dashboard')}>Dashboard</NavLink>
+            <NavLink to="/expenses" active={isActive('/expenses')}>Expenses</NavLink>
             <NavLink to="/invitations" active={isActive('/invitations')}>Invitations</NavLink>
           </nav>
 
@@ -135,7 +136,7 @@ export default function Layout({ children }) {
       </header>
 
       {/* ── Main Content ── */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-6 page-content fade-in">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 pt-4 sm:pt-6 page-content fade-in">
         {children}
       </main>
 
@@ -149,6 +150,16 @@ export default function Layout({ children }) {
             icon={
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={isActive('/dashboard') ? 2.5 : 1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            }
+          />
+          <BottomNavLink
+            to="/expenses"
+            active={isActive('/expenses')}
+            label="Expenses"
+            icon={
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={isActive('/expenses') ? 2.5 : 1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             }
           />
@@ -217,7 +228,7 @@ function BottomNavLink({ to, active, label, icon }) {
   return (
     <Link
       to={to}
-      className={`flex flex-col items-center gap-1 px-5 py-1 rounded-lg transition-colors touch-manipulation ${
+      className={`flex flex-col items-center gap-1 px-3 xs:px-4 py-1 rounded-lg transition-colors touch-manipulation min-w-[64px] ${
         active ? 'text-accent' : 'text-ink-500 hover:text-ink-300'
       }`}
       aria-label={label}
