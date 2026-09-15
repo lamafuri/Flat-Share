@@ -22,12 +22,12 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      await api.post('/auth/register', {
+      const { data } = await api.post('/auth/register', {
         fullName: form.fullName,
         email: form.email,
         password: form.password
       });
-      navigate('/verify-email', { state: { email: form.email } });
+      navigate('/verify-email', { state: { email: form.email, emailSent: data.emailSent !== false } });
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
     } finally {

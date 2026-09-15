@@ -22,12 +22,14 @@ export default function LoginPage() {
       if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
         // The original code has likely expired, so send a fresh one before
         // taking the user to the verification screen.
+        let emailSent = true;
         try {
           await api.post('/auth/resend-otp', { email: form.email, purpose: 'verify' });
         } catch {
-          // The verification page lets the user request another code.
+          // The verification page explains the failure and offers a resend.
+          emailSent = false;
         }
-        navigate('/verify-email', { state: { email: form.email } });
+        navigate('/verify-email', { state: { email: form.email, emailSent } });
         return;
       }
       setError(err.response?.data?.message || 'Login failed');

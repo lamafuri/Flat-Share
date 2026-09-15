@@ -17,6 +17,8 @@ export default function VerifyEmailPage() {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
+  // Set when registration or sign-in could not deliver the first code.
+  const [deliveryFailed, setDeliveryFailed] = useState(location.state?.emailSent === false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,6 +46,7 @@ export default function VerifyEmailPage() {
     setResending(true);
     try {
       await api.post('/auth/resend-otp', { email, purpose: 'verify' });
+      setDeliveryFailed(false);
       setResent(true);
       setTimeout(() => setResent(false), 5000);
     } catch (err) {
@@ -61,7 +64,9 @@ export default function VerifyEmailPage() {
           <h1 className="text-2xl font-semibold text-ink-100">Check your email</h1>
           {prefilledEmail ? (
             <>
-              <p className="text-ink-500 text-sm mt-1">We sent a 6-digit code to</p>
+              <p className="text-ink-500 text-sm mt-1">
+                {deliveryFailed ? 'Your 6-digit code will be sent to' : 'We sent a 6-digit code to'}
+              </p>
               <p className="text-accent text-sm font-medium">{prefilledEmail}</p>
             </>
           ) : (
@@ -70,6 +75,11 @@ export default function VerifyEmailPage() {
         </div>
 
         <div className="card p-6">
+          {deliveryFailed && !error && (
+            <div className="bg-warning/10 border border-warning/20 text-warning text-sm px-3 py-2.5 rounded-lg mb-4">
+              We couldn't send your verification code. Tap "Resend code" below to try again.
+            </div>
+          )}
           {error && (
             <div className="bg-danger/10 border border-danger/20 text-danger text-sm px-3 py-2.5 rounded-lg mb-4">{error}</div>
           )}
