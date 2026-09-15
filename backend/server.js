@@ -14,6 +14,10 @@ dotenv.config();
 
 const app = express();
 
+// Render terminates requests at a single reverse proxy that sets
+// X-Forwarded-For. Trust exactly that one hop so req.ip is the client's IP.
+app.set('trust proxy', 1);
+
 // Get allowed origins from environment or use defaults
 const CLIENT_URL = process.env.CLIENT_URL || 'https://flat-share-self.vercel.app';
 console.log('CORS allowing origin:', CLIENT_URL);
