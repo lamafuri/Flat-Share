@@ -3,8 +3,6 @@ import axios from 'axios'
 // Get API URL from environment, fallback for development
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
-console.log('API Base URL:', API_URL) // Debug log
-
 const api = axios.create({
   baseURL: `${API_URL}/api`,
   withCredentials: true, // Important for httpOnly cookies
