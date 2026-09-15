@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
+import { SOURCE_COLORS, formatRs } from '../utils/expenses';
+import { entriesInRange, resolveRange, summarize } from '../utils/insights';
+import { toBS, toISODate } from '../utils/nepaliDate';
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
@@ -35,6 +39,8 @@ export default function ProfilePage() {
     <Layout>
       <div className="max-w-md fade-in">
         <h1 className="text-lg sm:text-xl font-semibold text-ink-100 mb-4 sm:mb-6">Profile</h1>
+
+        <SpendingSummaryCard />
 
         <div className="card p-4 sm:p-6">
           {/* Avatar */}
@@ -98,4 +104,56 @@ export default function ProfilePage() {
 
 function Spinner() {
   return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" aria-hidden />;
+}
+
+// This month's spending at a glance, linking to the full tracker.
+function SpendingSummaryCard() {
+  const [summary, setSummary] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const range = resolveRange('thisMonth');
+
+  useEffect(() => {
+    if (!range) return;
+    let cancelled = false;
+    api.get('/insights/expenses', { params: { from: toISODate(range.start), to: toISODate(range.end) } })
+      .then(({ data }) => { if (!cancelled) setSummary(summarize(entriesInRange(data.entries, range))); })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, []); // Fetch once per visit; the range only changes with the month.
+
+  if (!range || failed) return null;
+  const monthName = toBS(range.start).monthName;
+
+  return (
+    <Link
+      to="/expenses"
+      className="card p-4 sm:p-5 mb-4 block hover:border-ink-700 active:bg-ink-800 transition-colors touch-manipulation"
+      aria-label={summary ? `Spent in ${monthName}: ${formatRs(summary.total)}. Open expense tracker` : 'Open expense tracker'}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs text-ink-500">Spent in {monthName}</p>
+          {summary ? (
+            <p className="text-2xl font-semibold text-ink-100 mt-1 truncate">{formatRs(summary.total)}</p>
+          ) : (
+            <div className="h-8 w-32 mt-1 rounded-md bg-ink-800 animate-pulse" aria-hidden />
+          )}
+        </div>
+        <span className="shrink-0 text-xs sm:text-sm font-medium text-accent flex items-center gap-1 py-1">
+          Expense tracker
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        </span>
+      </div>
+      {summary && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+          {[['personal', 'Personal'], ['group', 'In groups']].map(([key, label]) => (
+            <span key={key} className="inline-flex items-center gap-1.5 text-xs text-ink-400">
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: SOURCE_COLORS[key] }} aria-hidden />
+              {label} <span className="text-ink-200 font-medium">{formatRs(summary[key])}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </Link>
+  );
 }
