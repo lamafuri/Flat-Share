@@ -41,4 +41,10 @@ api.interceptors.response.use(
   }
 )
 
+// The API is hosted on Render's free tier, which suspends the service after a
+// period of inactivity; the first request then takes up to a minute while it
+// boots. Ping it as soon as the app loads so it is usually awake by the time
+// the user submits a form.
+export const wakeServer = () => api.get('/health').catch(() => {})
+
 export default api

@@ -1,7 +1,10 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import { wakeServer } from './utils/api'
 import './index.css'
+
+wakeServer()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
