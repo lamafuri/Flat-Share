@@ -26,7 +26,7 @@ A clean, production-ready expense-sharing web app for people living together in 
 | Frontend  | React 18 + Vite + Tailwind CSS + React Router |
 | Backend   | Node.js + Express + MongoDB + Mongoose        |
 | Auth      | JWT (httpOnly cookies) + bcryptjs             |
-| Email     | Nodemailer (Gmail)                            |
+| Email     | Brevo transactional email API             |
 
 ---
 
@@ -37,7 +37,7 @@ flatshare/
 ├── backend/
 │   ├── models/          # Mongoose schemas
 │   ├── routes/          # Express route handlers
-│   ├── middleware/       # JWT auth middleware
+│   ├── middleware/      # JWT auth, rate limiting
 │   ├── utils/           # Email, JWT helpers, Nepali date
 │   ├── server.js
 │   ├── package.json
@@ -60,7 +60,7 @@ flatshare/
 ### Prerequisites
 - Node.js v18+
 - MongoDB (local or Atlas)
-- Gmail account (for OTP emails)
+- [Brevo](https://www.brevo.com) account (for OTP emails, free plan is enough; optional for local development)
 
 ---
 
@@ -93,21 +93,24 @@ MONGODB_URI=mongodb://localhost:27017/flatshare
 JWT_SECRET=change_this_to_a_long_random_string
 JWT_EXPIRES_IN=7d
 
-# Gmail: use an App Password (not your regular password)
-# Go to: myaccount.google.com → Security → App Passwords
-EMAIL_USER=your_gmail@gmail.com
-EMAIL_PASS=your_16_char_app_password
+# Brevo transactional email (leave empty locally to print OTP codes to the console)
+BREVO_API_KEY=your_brevo_api_key
+EMAIL_FROM=your_verified_sender@example.com
+EMAIL_FROM_NAME=FlatShare App
 
 # Frontend origin(s) allowed by CORS; comma-separate multiple origins
 CLIENT_URL=http://localhost:5173
 NODE_ENV=development
 ```
 
-> **Gmail App Password Setup:**
-> 1. Enable 2-Step Verification on your Google account
-> 2. Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
-> 3. Create an app password for "Mail"
-> 4. Use that 16-character password as `EMAIL_PASS`
+> **Brevo Setup:**
+> 1. Create a free account at [brevo.com](https://www.brevo.com)
+> 2. Go to **Senders, Domains & Dedicated IPs → Senders**, add the address you want to send from and confirm it from your inbox. Use it as `EMAIL_FROM`
+> 3. Go to **SMTP & API → API Keys**, generate a key and use it as `BREVO_API_KEY`
+>
+> Emails are sent over Brevo's HTTPS API, not SMTP. Many hosts, including Render's free tier, block outbound SMTP ports.
+>
+> In development (`NODE_ENV=development`) with no Brevo settings, OTP codes are printed to the backend console instead of being emailed.
 
 ---
 
@@ -201,14 +204,43 @@ MONGODB_URI=mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/flatshare
 
 ---
 
-## Build for Production
+## Deployment
 
-```bash
-# Build frontend
-cd flatshare/frontend
-npm run build
-# Output in dist/
+The backend is deployed on **Render** and the frontend on **Vercel**.
 
-# Set NODE_ENV=production in backend .env
-# Serve frontend dist/ via nginx or Express static
-```
+### Backend (Render web service)
+- **Root directory:** `backend`
+- **Build command:** `npm install`
+- **Start command:** `npm start`
+- **Environment variables:**
+
+| Variable          | Value                                                  |
+|-------------------|--------------------------------------------------------|
+| `MONGODB_URI`     | MongoDB Atlas connection string                        |
+| `JWT_SECRET`      | Long random string                                     |
+| `JWT_EXPIRES_IN`  | `7d`                                                   |
+| `BREVO_API_KEY`   | Brevo API key                                          |
+| `EMAIL_FROM`      | Sender address verified in Brevo                       |
+| `EMAIL_FROM_NAME` | `FlatShare App` (optional)                             |
+| `CLIENT_URL`      | Vercel URL, no trailing slash (comma-separate several) |
+| `NODE_ENV`        | `production`                                           |
+
+### Frontend (Vercel)
+- **Root directory:** `frontend`
+- **Framework preset:** Vite
+- **Environment variable:** `VITE_API_URL` = the Render service URL (e.g. `https://your-api.onrender.com`)
+
+`vercel.json` rewrites all routes to `index.html` so client-side routes work on refresh.
+
+> Render's free tier sleeps after inactivity, so the first request can take up to a minute. The app pings the API on load and shows a notice while it wakes up.
+
+### Troubleshooting OTP emails
+Check the Render logs after registering. Delivery failures are logged as `Failed to send verify OTP email: ...`.
+
+| Log / symptom                                    | Fix                                                                                               |
+|--------------------------------------------------|---------------------------------------------------------------------------------------------------|
+| `BREVO_API_KEY or EMAIL_FROM is not set` on boot | Add both variables in Render and redeploy                                                         |
+| `Brevo API responded with 401` (`Key not found`) | The API key is wrong or was deleted; generate a new one                                           |
+| `401` mentioning an unrecognised IP address       | In Brevo **Security → Authorized IPs**, authorize the IP or deactivate IP blocking for API keys |
+| `400` about the sender                           | `EMAIL_FROM` must exactly match a verified sender in Brevo                                        |
+| Request succeeds but the email is in spam        | Expected when sending from a free address (e.g. Gmail); authenticate your own domain in Brevo    |
