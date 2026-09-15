@@ -56,10 +56,12 @@ If the email belongs to an account that was never verified, the registration rep
 ```json
 {
   "success": true,
-  "message": "Registration successful. Please verify your email.",
+  "emailSent": true,
+  "message": "Registration successful. Please check your email for the verification code.",
   "userId": "6579abc123def456"
 }
 ```
+> If the verification email could not be delivered, the account is still created and the response has `"emailSent": false` with the message `"Account created, but we could not send the verification email. Please request a new code."`. Clients should prompt the user to request a new code via `/auth/resend-otp`.
 
 **Error Responses:**
 - `400` — Missing fields or email already registered (verified account)
@@ -156,6 +158,7 @@ Send a password reset OTP to the user's email. The response is the same whether 
 **Error Responses:**
 - `400` — Email is required
 - `429` — Rate limit exceeded
+- `503` — The email could not be delivered (`"code": "EMAIL_DELIVERY_FAILED"`)
 
 ---
 
@@ -229,6 +232,7 @@ Resend OTP for email verification or password reset. A code is only sent when th
 **Error Responses:**
 - `400` — Email is required, or invalid `purpose`
 - `429` — Rate limit exceeded
+- `503` — The email could not be delivered (`"code": "EMAIL_DELIVERY_FAILED"`)
 
 ---
 

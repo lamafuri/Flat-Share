@@ -9,6 +9,24 @@ const router = express.Router();
 
 const MAX_OTP_ATTEMPTS = 5;
 
+const EMAIL_DELIVERY_FAILED = {
+  success: false,
+  code: 'EMAIL_DELIVERY_FAILED',
+  message: 'We could not send the email right now. Please try again in a few minutes.'
+};
+
+// Sends the OTP email and reports whether it was handed to the provider.
+// Provider errors are logged for diagnosis but never returned to clients.
+const deliverOTPEmail = async (email, otp, purpose) => {
+  try {
+    await sendOTPEmail(email, otp, purpose);
+    return true;
+  } catch (error) {
+    console.error(`Failed to send ${purpose} OTP email:`, error.message);
+    return false;
+  }
+};
+
 const normalizeEmail = (email) =>
   typeof email === 'string' ? email.trim().toLowerCase() : '';
 
@@ -82,15 +100,16 @@ router.post('/register', emailBurstLimiter, emailLimiter, async (req, res) => {
       user = await User.create({ fullName, email, password, otp: otpData });
     }
 
-    try {
-      await sendOTPEmail(email, otp, 'verify');
-    } catch (emailError) {
-      console.error('Email send failed:', emailError.message);
-    }
+    // The account is kept even if the email fails, so the user can request
+    // a new code from the verification page instead of registering again.
+    const emailSent = await deliverOTPEmail(email, otp, 'verify');
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful. Please verify your email.',
+      emailSent,
+      message: emailSent
+        ? 'Registration successful. Please check your email for the verification code.'
+        : 'Account created, but we could not send the verification email. Please request a new code.',
       userId: user._id
     });
   } catch (error) {
@@ -186,7 +205,9 @@ router.post('/forgot-password', emailBurstLimiter, emailLimiter, async (req, res
       };
       await user.save();
 
-      await sendOTPEmail(email, otp, 'reset');
+      if (!(await deliverOTPEmail(email, otp, 'reset'))) {
+        return res.status(503).json(EMAIL_DELIVERY_FAILED);
+      }
     }
 
     res.json({ success: true, message: 'If an account exists for that email, a reset code has been sent.' });
@@ -254,7 +275,9 @@ router.post('/resend-otp', emailBurstLimiter, emailLimiter, async (req, res) => 
       };
       await user.save();
 
-      await sendOTPEmail(email, otp, purpose);
+      if (!(await deliverOTPEmail(email, otp, purpose))) {
+        return res.status(503).json(EMAIL_DELIVERY_FAILED);
+      }
     }
 
     res.json({ success: true, message: 'If this email needs a code, a new one has been sent.' });
