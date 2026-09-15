@@ -58,21 +58,29 @@ router.post('/register', emailBurstLimiter, emailLimiter, async (req, res) => {
     }
 
     const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    if (existingUser?.isVerified) {
       return res.status(400).json({ success: false, message: 'Email already registered' });
     }
 
     const otp = generateOTP();
-    const user = await User.create({
-      fullName,
-      email,
-      password,
-      otp: {
-        code: otp,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-        purpose: 'verify'
-      }
-    });
+    const otpData = {
+      code: otp,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      purpose: 'verify'
+    };
+
+    // An unverified account never proved ownership of the email (for example
+    // the first code was never delivered), so let registration start over
+    // instead of leaving the address permanently stuck.
+    let user;
+    if (existingUser) {
+      existingUser.fullName = fullName;
+      existingUser.password = password;
+      existingUser.otp = otpData;
+      user = await existingUser.save();
+    } else {
+      user = await User.create({ fullName, email, password, otp: otpData });
+    }
 
     try {
       await sendOTPEmail(email, otp, 'verify');

@@ -39,6 +39,8 @@ Authentication endpoints are rate limited per client. Exceeding a limit returns
 ### POST `/auth/register`
 Register a new user. Sends a 6-digit OTP to the provided email.
 
+If the email belongs to an account that was never verified, the registration replaces that account's name and password and sends a fresh OTP, so users whose first code never arrived are not locked out.
+
 **Auth Required:** No
 
 **Request Body:**
@@ -60,7 +62,7 @@ Register a new user. Sends a 6-digit OTP to the provided email.
 ```
 
 **Error Responses:**
-- `400` — Missing fields or email already registered
+- `400` — Missing fields or email already registered (verified account)
 - `500` — Server error
 
 ---
