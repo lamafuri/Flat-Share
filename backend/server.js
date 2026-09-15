@@ -9,6 +9,7 @@ import groupRoutes from './routes/groups.js';
 import expenseRoutes from './routes/expenses.js';
 import reportRoutes from './routes/reports.js';
 import userRoutes from './routes/users.js';
+import { isEmailConfigured } from './utils/email.js';
 
 dotenv.config();
 
@@ -70,6 +71,9 @@ mongoose.connect(process.env.MONGODB_URI)
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`✅ CORS enabled for: ${allowedOrigins.join(', ')}`);
+      if (!isEmailConfigured()) {
+        console.warn('⚠️  BREVO_API_KEY or EMAIL_FROM is not set: OTP emails will not be delivered');
+      }
     });
   })
   .catch(err => {
