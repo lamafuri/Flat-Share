@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../utils/api';
 import { CATEGORIES, getCategory, getLastCategory, rememberCategory } from '../utils/expenses';
+import { PERSONAL_ITEMS, findItem, quickPicksFor, rememberItems, suggestionsFor } from '../utils/catalog';
 import { addDays, formatBS, parseISODate, toISODate } from '../utils/nepaliDate';
+import ItemSearchInput from './ItemSearchInput';
+import QuickPicks from './QuickPicks';
 import Spinner from './Spinner';
 
 // Add or edit a personal expense. Bottom sheet on mobile, dialog on desktop.
@@ -25,8 +28,21 @@ export default function PersonalExpenseSheet({ expense, onClose, onSaved, onDele
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState('');
   const amountRef = useRef(null);
+  const suggestions = useMemo(() => suggestionsFor('personal', PERSONAL_ITEMS), []);
+  const quickPicks = useMemo(() => quickPicksFor('personal', PERSONAL_ITEMS), []);
 
   const set = (field) => (value) => setForm(f => ({ ...f, [field]: value }));
+
+  // A known item decides the category; anything else keeps the one picked.
+  const matchedItem = findItem(suggestions, form.title);
+  const setTitle = (title) => {
+    const item = findItem(suggestions, title);
+    setForm(f => ({ ...f, title, ...(item && { category: item.category }) }));
+  };
+  const pickItem = (item) => {
+    setForm(f => ({ ...f, title: item.name, category: item.category }));
+    if (!amountValid) amountRef.current?.focus();
+  };
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -58,8 +74,9 @@ export default function PersonalExpenseSheet({ expense, onClose, onSaved, onDele
     setSaving(true);
     const payload = {
       amount: amountNumber,
-      // The title is optional in the form; fall back to the category name.
-      title: form.title.trim() || category.label,
+      // The title is optional in the form; fall back to the category name. A
+      // known item is saved under its list name ("pathao" -> "Pathao").
+      title: matchedItem?.name || form.title.trim() || category.label,
       category: form.category,
       date: form.date,
       note: showNote ? form.note.trim() : ''
@@ -69,6 +86,7 @@ export default function PersonalExpenseSheet({ expense, onClose, onSaved, onDele
         ? await api.put(`/personal-expenses/${expense._id}`, payload)
         : await api.post('/personal-expenses', payload);
       rememberCategory(form.category);
+      if (form.title.trim()) rememberItems('personal', [{ name: payload.title, category: form.category }]);
       onSaved(data.expense, { isEdit });
     } catch (err) {
       setError(err.response?.data?.message || 'Could not save the expense. Please try again.');
@@ -126,6 +144,8 @@ export default function PersonalExpenseSheet({ expense, onClose, onSaved, onDele
             <div className="bg-danger/10 border border-danger/20 text-danger text-sm px-3 py-2 rounded-lg" role="alert">{error}</div>
           )}
 
+          {!isEdit && <QuickPicks picks={quickPicks} categoryFor={getCategory} onPick={pickItem} />}
+
           {/* Amount */}
           <div>
             <label className="label" htmlFor="expense-amount">Amount</label>
@@ -146,6 +166,30 @@ export default function PersonalExpenseSheet({ expense, onClose, onSaved, onDele
                 required
               />
             </div>
+          </div>
+
+          {/* Item */}
+          <div>
+            <label className="label" htmlFor="expense-title">
+              What for? <span className="normal-case tracking-normal text-ink-600">(optional)</span>
+            </label>
+            <ItemSearchInput
+              id="expense-title"
+              items={suggestions}
+              categoryFor={getCategory}
+              placeholder={category.placeholder}
+              maxLength={100}
+              value={form.title}
+              onChange={setTitle}
+              onPick={pickItem}
+            />
+            {form.title.trim() && (
+              <p className="text-xs text-ink-500 mt-1.5" aria-live="polite">
+                {matchedItem
+                  ? `${category.emoji} Category set to ${category.label}`
+                  : 'Not in the list. Pick a category below.'}
+              </p>
+            )}
           </div>
 
           {/* Category */}
@@ -173,22 +217,6 @@ export default function PersonalExpenseSheet({ expense, onClose, onSaved, onDele
               })}
             </div>
           </fieldset>
-
-          {/* Title */}
-          <div>
-            <label className="label" htmlFor="expense-title">
-              Description <span className="normal-case tracking-normal text-ink-600">(optional)</span>
-            </label>
-            <input
-              id="expense-title"
-              type="text"
-              className="input-field"
-              placeholder={category.placeholder}
-              maxLength={100}
-              value={form.title}
-              onChange={e => set('title')(e.target.value)}
-            />
-          </div>
 
           {/* Date */}
           <div>

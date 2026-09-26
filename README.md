@@ -8,7 +8,8 @@ A clean, production-ready expense-sharing web app for people living together in 
 
 - 🔐 **Auth** — Register, email OTP verification, login, forgot password
 - 🏠 **Groups** — Create flat groups; the admin adds and removes members by name or email
-- 🛒 **Inventory** — Each member adds their grocery & household purchases (pre-populated Nepali items list + "Other")
+- 🛒 **Inventory** — Each member adds their grocery & household purchases. Items are suggested as you type (vegetables, dairy, cooking essentials, LPG gas, cleaning supplies…) and picking one sets its category; anything else can be given a category by hand
+- ⚡ **Quick add** — Your most-used items appear as one-tap chips when adding group or personal expenses
 - 💸 **Personal Expenses** — Track your own day-to-day spending by category, month by month (BS calendar)
 - 📊 **Expense Insights** — Charts of your personal spending plus what you paid in groups, over this month, last month, 3/6 months, this year or a custom range, compared with the previous period
 - 📅 **Nepali Calendar** — Dates shown in Bikram Sambat (BS) for Nepal groups
@@ -151,7 +152,7 @@ npm run dev
 
 ### Tracking Personal Expenses
 1. Open **Dashboard → Personal**
-2. Tap **Add Expense**, enter the amount, pick a category and (optionally) a description, date and note
+2. Tap **Add Expense** (or a **Quick add** chip), enter the amount, and type what it was for: known items like Momo, Pathao or Red Bull set the category automatically, otherwise pick one. Date and note are optional
 3. Browse months with the arrows; tap an expense to edit or delete it (deletes can be undone)
 
 ### Viewing Expense Insights
