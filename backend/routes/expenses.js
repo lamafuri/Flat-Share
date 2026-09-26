@@ -1,5 +1,5 @@
 import express from 'express';
-import Expense from '../models/Expense.js';
+import Expense, { GROUP_ITEM_CATEGORIES } from '../models/Expense.js';
 import Group from '../models/Group.js';
 import { protect } from '../middleware/auth.js';
 import { adToBS } from '../utils/nepaliDate.js';
@@ -23,8 +23,12 @@ router.post('/group/:groupId', protect, async (req, res) => {
 
     const { items, date } = req.body;
 
-    if (!items || !items.length) {
+    if (!Array.isArray(items) || !items.length) {
       return res.status(400).json({ success: false, message: 'At least one item is required' });
+    }
+    const category = items.find(item => item.category != null && !GROUP_ITEM_CATEGORIES.includes(item.category))?.category;
+    if (category !== undefined) {
+      return res.status(400).json({ success: false, message: `Invalid category: ${category}` });
     }
 
     const expenseDate = date ? new Date(date) : new Date();
@@ -37,7 +41,7 @@ router.post('/group/:groupId', protect, async (req, res) => {
     const expense = await Expense.create({
       group: group._id,
       user: req.user._id,
-      items,
+      items: items.map(({ itemName, price, category }) => ({ itemName, price, category: category || 'other' })),
       date: expenseDate,
       nepaliDate
     });
