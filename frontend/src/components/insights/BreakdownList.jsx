@@ -4,8 +4,8 @@ import { SOURCE_COLORS, formatRs } from '../../utils/expenses';
 
 const COLLAPSED_ROWS = 6;
 
-// Ranked horizontal bars: personal spending per category (blue) and spending
-// in each group (orange). Every value is printed, so this doubles as the table.
+// Ranked horizontal bars: spending per category, personal (blue) and in
+// groups (orange). Every value is printed, so this doubles as the table.
 export default function BreakdownList({ rows, showSourceLegend }) {
   const [expanded, setExpanded] = useState(false);
   const max = rows[0]?.amount || 1;
@@ -15,7 +15,7 @@ export default function BreakdownList({ rows, showSourceLegend }) {
     <section className="card p-4 sm:p-5" aria-labelledby="breakdown-title">
       <div className="mb-3">
         <h2 id="breakdown-title" className="text-sm font-semibold text-ink-100">Where it went</h2>
-        <p className="text-xs text-ink-500 mt-0.5">Personal spending by category and what you paid in each group</p>
+        <p className="text-xs text-ink-500 mt-0.5">Personal and group spending by category</p>
       </div>
 
       {showSourceLegend && (

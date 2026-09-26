@@ -9,6 +9,7 @@ import { useSwipe } from '../utils/gestures';
 import { formatAD, formatBSNumeric } from '../utils/nepaliDate';
 import Spinner from '../components/Spinner';
 import { formatRs } from '../utils/expenses';
+import { GROUP_ITEMS, findItem, getGroupCategory } from '../utils/catalog';
 
 const TABS = ['my', 'all', 'report'];
 const TAB_LABELS = { my: 'My Items', all: 'All Members', report: 'Report' };
@@ -693,6 +694,9 @@ function EmptyState({ icon, title, subtitle, action }) {
   );
 }
 
+// Items saved before categories existed have none; infer it from the name.
+const itemCategory = (item) => getGroupCategory(item.category || findItem(GROUP_ITEMS, item.itemName)?.category);
+
 function ExpenseCard({ expense, canDelete, onDelete, country, compact }) {
   const [expanded, setExpanded] = useState(false);
   // Derive the BS date from the expense date: BS dates stored before the
@@ -727,7 +731,9 @@ function ExpenseCard({ expense, canDelete, onDelete, country, compact }) {
         <div className="mt-3 pt-3 border-t border-ink-800 space-y-1.5 fade-in">
           {expense.items.map((item, idx) => (
             <div key={idx} className="flex justify-between items-center text-sm">
-              <span className="text-ink-400 truncate max-w-[70%]">{item.itemName}</span>
+              <span className="text-ink-400 truncate max-w-[70%]">
+                <span className="mr-1.5" title={itemCategory(item).label} aria-hidden>{itemCategory(item).emoji}</span>{item.itemName}
+              </span>
               <span className="font-mono text-ink-300">{formatRs(item.price)}</span>
             </div>
           ))}

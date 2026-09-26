@@ -8,10 +8,10 @@ import BreakdownList from '../components/insights/BreakdownList';
 import PaceChart from '../components/insights/PaceChart';
 import SpendingOverTimeChart from '../components/insights/SpendingOverTimeChart';
 import api from '../utils/api';
-import { SOURCE_COLORS, formatRs, getCategory } from '../utils/expenses';
+import { SOURCE_COLORS, formatRs } from '../utils/expenses';
 import {
   MAX_CUSTOM_RANGE_DAYS, RANGE_PRESETS, SOURCE_FILTERS, breakdown, bucketize, comparePeriods,
-  cumulativeSeries, entriesInRange, filterBySource, granularityFor, resolveRange, summarize
+  cumulativeSeries, entriesInRange, entryCategory, filterBySource, granularityFor, resolveRange, summarize
 } from '../utils/insights';
 import { addDays, daysBetween, formatBS, parseISODate, toISODate } from '../utils/nepaliDate';
 
@@ -418,13 +418,13 @@ function Transactions({ entries, onEdit }) {
 
 function TransactionRow({ entry, onEdit }) {
   const isPersonal = entry.source === 'personal';
-  const category = isPersonal ? getCategory(entry.category) : null;
+  const category = entryCategory(entry);
   const detail = isPersonal ? category.label : entry.groupName;
 
   const content = (
     <>
       <span className="w-9 h-9 rounded-lg bg-ink-800 flex items-center justify-center text-lg shrink-0" aria-hidden>
-        {isPersonal ? category.emoji : '🏠'}
+        {category.emoji}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm text-ink-100 truncate">{entry.title}</span>
