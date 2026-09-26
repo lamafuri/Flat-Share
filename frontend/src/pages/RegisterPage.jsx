@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import ServerWakeNotice from '../components/ServerWakeNotice';
+import Spinner from '../components/Spinner';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -110,8 +111,4 @@ export default function RegisterPage() {
       </div>
     </div>
   );
-}
-
-function Spinner() {
-  return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />;
 }

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import api from "../utils/api";
 import { COMMON_ITEMS } from "../utils/items";
 import { toISODate } from "../utils/nepaliDate";
+import Spinner from "./Spinner";
 
 export default function AddExpenseModal({ groupId, onClose, onAdded }) {
   const [items, setItems] = useState([{ itemName: "", price: "" }]);
@@ -197,8 +198,4 @@ export default function AddExpenseModal({ groupId, onClose, onAdded }) {
       </div>
     </div>
   );
-}
-
-function Spinner() {
-  return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-hidden />;
 }

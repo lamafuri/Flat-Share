@@ -7,6 +7,7 @@ import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useSwipe } from '../utils/gestures';
 import { formatAD, formatBSNumeric } from '../utils/nepaliDate';
+import Spinner from '../components/Spinner';
 
 const TABS = ['my', 'all', 'report'];
 const TAB_LABELS = { my: 'My Items', all: 'All Members', report: 'Report' };
@@ -733,8 +734,4 @@ function ExpenseCard({ expense, canDelete, onDelete, country, compact }) {
       )}
     </div>
   );
-}
-
-function Spinner() {
-  return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" aria-hidden />;
 }

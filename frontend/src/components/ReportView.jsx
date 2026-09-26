@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import api from '../utils/api';
+import Spinner from './Spinner';
 
 export default function ReportView({ groupId, group }) {
   const [flatRent, setFlatRent] = useState('');
@@ -268,8 +269,4 @@ function SummaryBox({ label, value, accent, className = '' }) {
       <p className={`font-mono font-semibold text-sm sm:text-base truncate ${accent ? 'text-accent' : 'text-ink-100'}`}>{value}</p>
     </div>
   );
-}
-
-function Spinner() {
-  return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-hidden />;
 }

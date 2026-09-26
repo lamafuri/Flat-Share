@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import PersonalExpensesPanel from '../components/PersonalExpensesPanel';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import Spinner from '../components/Spinner';
 
 const COUNTRIES = ['Nepal', 'India', 'Other'];
 
@@ -258,8 +259,4 @@ function GroupCard({ group, userId }) {
       </div>
     </Link>
   );
-}
-
-function Spinner() {
-  return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" aria-hidden />;
 }

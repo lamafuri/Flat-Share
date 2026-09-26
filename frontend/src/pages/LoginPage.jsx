@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import ServerWakeNotice from '../components/ServerWakeNotice';
+import Spinner from '../components/Spinner';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -97,8 +98,4 @@ export default function LoginPage() {
       </div>
     </div>
   );
-}
-
-function Spinner() {
-  return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />;
 }
