@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import api from '../utils/api';
 import Spinner from './Spinner';
-import { formatRs } from '../utils/expenses';
+import { formatRs, formatRsExact } from '../utils/expenses';
 
 export default function ReportView({ groupId, group }) {
   const [flatRent, setFlatRent] = useState('');
@@ -119,7 +119,7 @@ export default function ReportView({ groupId, group }) {
               <SummaryBox label="Total Expenses" value={formatRs(report.totalExpenses)} />
               <SummaryBox label="Total Cost" value={formatRs(report.totalCost)} accent className="col-span-2 sm:col-span-1" />
               <SummaryBox label="Members" value={report.memberCount} />
-              <SummaryBox label="Actual Split" value={`Rs ${report.actualDividedCost.toFixed(2)}`} />
+              <SummaryBox label="Actual Split" value={formatRsExact(report.actualDividedCost)} />
               <SummaryBox label="Optimized Split" value={formatRs(report.optimizedDividedCost)} accent />
             </div>
 
@@ -193,7 +193,7 @@ export default function ReportView({ groupId, group }) {
             {/* Calculation note */}
             <div className="mt-4 bg-ink-800/50 border border-ink-700 rounded-xl p-3 sm:p-4 text-xs text-ink-500 space-y-1.5">
               <p>• Total Cost = {formatRs(report.flatRent)} (rent) + {formatRs(report.totalExpenses)} (expenses) = <span className="text-ink-300">{formatRs(report.totalCost)}</span></p>
-              <p>• Actual Split = {formatRs(report.totalCost)} ÷ {report.memberCount} = <span className="text-ink-300">Rs {report.actualDividedCost.toFixed(2)}</span></p>
+              <p>• Actual Split = {formatRs(report.totalCost)} ÷ {report.memberCount} = <span className="text-ink-300">{formatRsExact(report.actualDividedCost)}</span></p>
               <p>• Optimized Split (rounded to nearest 10) = <span className="text-ink-300">{formatRs(report.optimizedDividedCost)}</span></p>
               <p>• To Pay = Optimized Split − Person's Expenses</p>
             </div>

@@ -37,6 +37,10 @@ const compactFormat = new Intl.NumberFormat('en-IN', { notation: 'compact', maxi
 
 export const formatRs = (amount) => `Rs ${rupeeFormat.format(amount || 0)}`;
 
+// Always two decimals ("Rs 11,760.00"), for values shown to the paisa.
+const exactFormat = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export const formatRsExact = (amount) => `Rs ${exactFormat.format(amount || 0)}`;
+
 // "Rs 1.2K", "Rs 3.5L" — for axis ticks and tight spaces.
 export const formatRsCompact = (amount) => `Rs ${compactFormat.format(amount || 0)}`;
 
