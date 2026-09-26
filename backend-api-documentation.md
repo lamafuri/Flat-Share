@@ -965,7 +965,7 @@ _id          ObjectId
 user         ref: User
 title        String (required, max 100)
 amount       Number (> 0)
-category     'food'|'groceries'|'transport'|'bills'|'shopping'|'health'|'education'|'entertainment'|'other'
+category     'food'|'drinks'|'transport'|'health'|'clothes'|'social'|'tech'|'groceries'|'bills'|'shopping'|'education'|'entertainment'|'other'
 date         Date (calendar day at 12:00 UTC)
 note         String (max 500)
 createdAt    Date
