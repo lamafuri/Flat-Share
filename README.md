@@ -7,7 +7,7 @@ A clean, production-ready expense-sharing web app for people living together in 
 ## Features
 
 - 🔐 **Auth** — Register, email OTP verification, login, forgot password
-- 🏠 **Groups** — Create flat groups, invite members by name/email, accept/reject invitations
+- 🏠 **Groups** — Create flat groups; the admin adds and removes members by name or email
 - 🛒 **Inventory** — Each member adds their grocery & household purchases (pre-populated Nepali items list + "Other")
 - 💸 **Personal Expenses** — Track your own day-to-day spending by category, month by month (BS calendar)
 - 📊 **Expense Insights** — Charts of your personal spending plus what you paid in groups, over this month, last month, 3/6 months, this year or a custom range, compared with the previous period
@@ -144,10 +144,10 @@ npm run dev
 3. Enter group name & select country (Nepal uses BS calendar)
 4. You're automatically the Admin
 
-### Inviting Members
-1. Open your group → click **Invite**
-2. Search by name or type an email
-3. Invitee gets a pending invitation they can accept/reject
+### Adding Members
+1. Open your group → **⋯ → Manage Members** (admin only)
+2. Search by name or type an email, then tap **Add**
+3. They join the group immediately; remove members from the same screen
 
 ### Tracking Personal Expenses
 1. Open **Dashboard → Personal**

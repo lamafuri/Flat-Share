@@ -47,38 +47,12 @@ router.post('/', protect, async (req, res) => {
   }
 });
 
-// IMPORTANT: /invitations/mine must be BEFORE /:id
-router.get('/invitations/mine', protect, async (req, res) => {
-  try {
-    const groups = await Group.find({
-      invitations: {
-        $elemMatch: { user: req.user._id, status: 'pending' }
-      }
-    }).populate('admin', 'fullName email');
-
-    const invitations = groups.map(group => ({
-      groupId: group._id,
-      groupName: group.name,
-      country: group.country,
-      admin: group.admin,
-      invitedAt: group.invitations.find(
-        inv => inv.user.toString() === req.user._id.toString()
-      )?.invitedAt
-    }));
-
-    res.json({ success: true, invitations });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
 // @route  GET /api/groups/:id
 router.get('/:id', protect, async (req, res) => {
   try {
     const group = await Group.findById(req.params.id)
       .populate('admin', 'fullName email')
-      .populate('members.user', 'fullName email')
-      .populate('invitations.user', 'fullName email');
+      .populate('members.user', 'fullName email');
 
     if (!group) {
       return res.status(404).json({ success: false, message: 'Group not found' });
@@ -94,52 +68,8 @@ router.get('/:id', protect, async (req, res) => {
   }
 });
 
-// @route  POST /api/groups/:id/invite
-router.post('/:id/invite', protect, async (req, res) => {
-  try {
-    const group = await Group.findById(req.params.id);
-    if (!group) {
-      return res.status(404).json({ success: false, message: 'Group not found' });
-    }
-
-    if (group.admin.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Only admin can invite members' });
-    }
-
-    const { email, userId } = req.body;
-    let targetUser;
-    if (userId) {
-      targetUser = await User.findById(userId);
-    } else if (email) {
-      targetUser = await User.findOne({ email: email.toLowerCase() });
-    }
-
-    if (!targetUser) {
-      return res.status(404).json({ success: false, message: 'User not found. Make sure they have a registered FlatShare account.' });
-    }
-
-    if (isMember(group, targetUser._id)) {
-      return res.status(400).json({ success: false, message: 'User is already a member' });
-    }
-
-    const alreadyInvited = group.invitations.some(
-      inv => inv.user?.toString() === targetUser._id.toString() && inv.status === 'pending'
-    );
-    if (alreadyInvited) {
-      return res.status(400).json({ success: false, message: 'User already has a pending invitation' });
-    }
-
-    group.invitations.push({ user: targetUser._id, email: targetUser.email, status: 'pending' });
-    await group.save();
-
-    res.json({ success: true, message: 'Invitation sent successfully' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
 // @route  POST /api/groups/:id/add-member
-// @desc   Admin directly adds a user to the group (no invite flow)
+// @desc   Admin directly adds a user to the group
 router.post('/:id/add-member', protect, async (req, res) => {
   try {
     const group = await Group.findById(req.params.id);
@@ -168,13 +98,6 @@ router.post('/:id/add-member', protect, async (req, res) => {
     }
 
     group.members.push({ user: targetUser._id });
-
-    // Close any pending invitation; accepting it later would add the user twice.
-    group.invitations.forEach(inv => {
-      if (inv.user?.toString() === targetUser._id.toString() && inv.status === 'pending') {
-        inv.status = 'accepted';
-      }
-    });
     await group.save();
 
     const populated = await Group.findById(group._id)
@@ -182,38 +105,6 @@ router.post('/:id/add-member', protect, async (req, res) => {
       .populate('members.user', 'fullName email');
 
     res.json({ success: true, message: `${targetUser.fullName} added to the group`, group: populated });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// @route  POST /api/groups/:id/respond-invite
-router.post('/:id/respond-invite', protect, async (req, res) => {
-  try {
-    const { action } = req.body;
-    if (!['accept', 'reject'].includes(action)) {
-      return res.status(400).json({ success: false, message: 'Action must be accept or reject' });
-    }
-
-    const group = await Group.findById(req.params.id);
-    if (!group) {
-      return res.status(404).json({ success: false, message: 'Group not found' });
-    }
-
-    const invitation = group.invitations.find(
-      inv => inv.user?.toString() === req.user._id.toString() && inv.status === 'pending'
-    );
-    if (!invitation) {
-      return res.status(404).json({ success: false, message: 'No pending invitation found' });
-    }
-
-    invitation.status = action === 'accept' ? 'accepted' : 'rejected';
-    if (action === 'accept' && !isMember(group, req.user._id)) {
-      group.members.push({ user: req.user._id });
-    }
-    await group.save();
-
-    res.json({ success: true, message: action === 'accept' ? 'Joined the group!' : 'Invitation declined' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -198,7 +198,7 @@ export default function DashboardPage() {
             <div className="text-center py-12 sm:py-16 card fade-in">
               <div className="text-4xl mb-3" aria-hidden>🏠</div>
               <p className="text-ink-300 font-medium text-sm sm:text-base">No groups yet</p>
-              <p className="text-ink-500 text-xs sm:text-sm mt-1">Create a group or wait for an invitation</p>
+              <p className="text-ink-500 text-xs sm:text-sm mt-1">Create a group or ask a group admin to add you</p>
               <button
                 onClick={() => setShowCreate(true)}
                 className="btn-primary mt-4 inline-flex items-center gap-1.5"
