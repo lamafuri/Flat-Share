@@ -1,7 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import api from '../utils/api';
 import Spinner from './Spinner';
-import { formatRs } from '../utils/expenses';
+import { formatRs, formatRsExact } from '../utils/expenses';
+import { formatAD, formatBSNumeric } from '../utils/nepaliDate';
+
+const timeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
+
+// "2083 Ashwin 10, 9:05 AM" for Nepal groups, "Sep 26, 2026, 9:05 AM" otherwise.
+const formatGeneratedAt = (date, country) =>
+  `${country === 'Nepal' ? formatBSNumeric(date) : formatAD(date)}, ${timeFormat.format(new Date(date))}`;
+
+const periodText = (period = {}) =>
+  [period.label || 'Billing Report', [period.startNepaliDate, period.endNepaliDate].filter(Boolean).join(' – ')]
+    .filter(Boolean)
+    .join(' · ');
 
 export default function ReportView({ groupId, group }) {
   const [flatRent, setFlatRent] = useState('');
@@ -10,6 +22,17 @@ export default function ReportView({ groupId, group }) {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [savedReports, setSavedReports] = useState([]);
+  const [savedLoading, setSavedLoading] = useState(true);
+  const [openingId, setOpeningId] = useState(null);
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    api.get(`/reports/group/${groupId}`)
+      .then(({ data }) => setSavedReports(data.reports))
+      .catch(() => setError('Could not load saved reports'))
+      .finally(() => setSavedLoading(false));
+  }, [groupId]);
 
   const generate = async (e) => {
     e.preventDefault();
@@ -21,6 +44,7 @@ export default function ReportView({ groupId, group }) {
       if (endDate) payload.endDate = endDate;
       const { data } = await api.post(`/reports/group/${groupId}/generate`, payload);
       setReport(data.report);
+      setSavedReports(reports => [data.report, ...reports]);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to generate report');
     } finally {
@@ -28,49 +52,120 @@ export default function ReportView({ groupId, group }) {
     }
   };
 
+  const openReport = async (id) => {
+    setError('');
+    setOpeningId(id);
+    try {
+      const { data } = await api.get(`/reports/${id}`);
+      setReport(data.report);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to open report');
+    } finally {
+      setOpeningId(null);
+    }
+  };
+
+  // Reports keep the group name they were generated under; older ones fall
+  // back to the current name.
+  const reportName = report?.groupName || group.name;
+
+  const downloadPdf = async () => {
+    setError('');
+    setDownloading(true);
+    try {
+      const { downloadReportPdf } = await import('../utils/reportPdf');
+      downloadReportPdf(report, {
+        groupName: reportName,
+        generatedAt: formatGeneratedAt(report.createdAt, group.country)
+      });
+    } catch {
+      setError('Could not create the PDF. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const handlePrint = () => window.print();
 
   return (
     <div>
-      {/* ── Generator Form ── */}
+      {/* ── Generator Form + Saved Reports ── */}
       {!report && (
-        <div className="card p-4 sm:p-6 max-w-md fade-in">
-          <h3 className="font-semibold text-ink-100 mb-4 text-base sm:text-lg">Generate Bill Report</h3>
-          {error && (
-            <div className="bg-danger/10 border border-danger/20 text-danger text-sm px-3 py-2 rounded-lg mb-4" role="alert">
-              {error}
-            </div>
-          )}
-          <form onSubmit={generate} className="space-y-4">
-            <div>
-              <label className="label" htmlFor="flat-rent">Flat Rent (Rs)</label>
-              <input
-                id="flat-rent"
-                type="number"
-                className="input-field"
-                placeholder="e.g. 14000"
-                min="0"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={flatRent}
-                onChange={e => setFlatRent(e.target.value)}
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label" htmlFor="start-date">From (optional)</label>
-                <input id="start-date" type="date" className="input-field" value={startDate} onChange={e => setStartDate(e.target.value)} />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 items-start">
+          <div className="card p-4 sm:p-6 fade-in">
+            <h3 className="font-semibold text-ink-100 mb-4 text-base sm:text-lg">Generate Bill Report</h3>
+            {error && (
+              <div className="bg-danger/10 border border-danger/20 text-danger text-sm px-3 py-2 rounded-lg mb-4" role="alert">
+                {error}
               </div>
+            )}
+            <form onSubmit={generate} className="space-y-4">
               <div>
-                <label className="label" htmlFor="end-date">To (optional)</label>
-                <input id="end-date" type="date" className="input-field" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                <label className="label" htmlFor="flat-rent">Flat Rent (Rs)</label>
+                <input
+                  id="flat-rent"
+                  type="number"
+                  className="input-field"
+                  placeholder="e.g. 14000"
+                  min="0"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={flatRent}
+                  onChange={e => setFlatRent(e.target.value)}
+                  required
+                />
               </div>
-            </div>
-            <button type="submit" className="btn-primary w-full" disabled={loading}>
-              {loading ? <Spinner /> : 'Generate Report'}
-            </button>
-          </form>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label" htmlFor="start-date">From (optional)</label>
+                  <input id="start-date" type="date" className="input-field" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="label" htmlFor="end-date">To (optional)</label>
+                  <input id="end-date" type="date" className="input-field" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                </div>
+              </div>
+              <button type="submit" className="btn-primary w-full" disabled={loading}>
+                {loading ? <Spinner /> : 'Generate Report'}
+              </button>
+            </form>
+          </div>
+
+          <div className="card p-4 sm:p-6 fade-in">
+            <h3 className="font-semibold text-ink-100 mb-3 text-base sm:text-lg">Saved Reports</h3>
+            {savedLoading ? (
+              <div className="flex justify-center py-6">
+                <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" aria-label="Loading" />
+              </div>
+            ) : savedReports.length === 0 ? (
+              <p className="text-sm text-ink-500">No reports yet. Every report you generate is saved here.</p>
+            ) : (
+              <ul className="divide-y divide-ink-800 -mx-2">
+                {savedReports.map(saved => (
+                  <li key={saved._id}>
+                    <button
+                      onClick={() => openReport(saved._id)}
+                      disabled={openingId !== null}
+                      className="w-full flex items-center justify-between gap-3 px-2 py-3 rounded-lg text-left hover:bg-ink-800 transition-colors touch-manipulation disabled:opacity-60"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-ink-200 truncate">{periodText(saved.billingPeriod)}</p>
+                        <p className="text-xs text-ink-500 mt-0.5">Generated {formatGeneratedAt(saved.createdAt, group.country)}</p>
+                      </div>
+                      <span className="flex items-center gap-2 shrink-0">
+                        <span className="font-mono text-sm text-ink-300">{formatRs(saved.totalCost)}</span>
+                        {openingId === saved._id ? <Spinner /> : (
+                          <svg className="w-4 h-4 text-ink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 
@@ -79,19 +174,33 @@ export default function ReportView({ groupId, group }) {
         <div className="fade-in">
           {/* Actions */}
           <div className="flex items-center gap-2 mb-4 no-print">
-            <button onClick={() => setReport(null)} className="btn-ghost flex items-center gap-1.5 text-sm">
+            <button onClick={() => { setReport(null); setError(''); }} className="btn-ghost flex items-center gap-1.5 text-sm">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              <span className="hidden xs:inline">New Report</span>
+              <span className="hidden xs:inline">All Reports</span>
             </button>
-            <button onClick={handlePrint} className="btn-primary flex items-center gap-1.5 text-sm">
+            <button onClick={downloadPdf} disabled={downloading} className="btn-primary flex items-center gap-1.5 text-sm">
+              {downloading ? <Spinner /> : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+                </svg>
+              )}
+              Download PDF
+            </button>
+            <button onClick={handlePrint} className="btn-ghost flex items-center gap-1.5 text-sm" aria-label="Print">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
               </svg>
-              Print
+              <span className="hidden sm:inline">Print</span>
             </button>
           </div>
+
+          {error && (
+            <div className="bg-danger/10 border border-danger/20 text-danger text-sm px-3 py-2 rounded-lg mb-4 no-print" role="alert">
+              {error}
+            </div>
+          )}
 
           {/* Report card */}
           <div className="card p-4 sm:p-6 print:shadow-none print:border-0">
@@ -99,16 +208,12 @@ export default function ReportView({ groupId, group }) {
             <div className="border-b border-ink-800 pb-4 mb-4 sm:pb-5 sm:mb-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="text-lg sm:text-xl font-bold text-ink-100 truncate">{group.name}</h2>
-                  <p className="text-xs sm:text-sm text-ink-500 mt-0.5 line-clamp-2">
-                    {report.billingPeriod?.label || 'Billing Report'}
-                    {report.billingPeriod?.startNepaliDate ? ` · ${report.billingPeriod.startNepaliDate}` : ''}
-                    {report.billingPeriod?.endNepaliDate ? ` – ${report.billingPeriod.endNepaliDate}` : ''}
-                  </p>
+                  <h2 className="text-lg sm:text-xl font-bold text-ink-100 truncate">{reportName}</h2>
+                  <p className="text-xs sm:text-sm text-ink-500 mt-0.5 line-clamp-2">{periodText(report.billingPeriod)}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-xs text-ink-500">Generated</p>
-                  <p className="text-xs text-ink-400">{new Date(report.createdAt).toLocaleDateString()}</p>
+                  <p className="text-xs text-ink-400">{formatGeneratedAt(report.createdAt, group.country)}</p>
                 </div>
               </div>
             </div>
@@ -119,7 +224,7 @@ export default function ReportView({ groupId, group }) {
               <SummaryBox label="Total Expenses" value={formatRs(report.totalExpenses)} />
               <SummaryBox label="Total Cost" value={formatRs(report.totalCost)} accent className="col-span-2 sm:col-span-1" />
               <SummaryBox label="Members" value={report.memberCount} />
-              <SummaryBox label="Actual Split" value={`Rs ${report.actualDividedCost.toFixed(2)}`} />
+              <SummaryBox label="Actual Split" value={formatRsExact(report.actualDividedCost)} />
               <SummaryBox label="Optimized Split" value={formatRs(report.optimizedDividedCost)} accent />
             </div>
 
@@ -193,7 +298,7 @@ export default function ReportView({ groupId, group }) {
             {/* Calculation note */}
             <div className="mt-4 bg-ink-800/50 border border-ink-700 rounded-xl p-3 sm:p-4 text-xs text-ink-500 space-y-1.5">
               <p>• Total Cost = {formatRs(report.flatRent)} (rent) + {formatRs(report.totalExpenses)} (expenses) = <span className="text-ink-300">{formatRs(report.totalCost)}</span></p>
-              <p>• Actual Split = {formatRs(report.totalCost)} ÷ {report.memberCount} = <span className="text-ink-300">Rs {report.actualDividedCost.toFixed(2)}</span></p>
+              <p>• Actual Split = {formatRs(report.totalCost)} ÷ {report.memberCount} = <span className="text-ink-300">{formatRsExact(report.actualDividedCost)}</span></p>
               <p>• Optimized Split (rounded to nearest 10) = <span className="text-ink-300">{formatRs(report.optimizedDividedCost)}</span></p>
               <p>• To Pay = Optimized Split − Person's Expenses</p>
             </div>

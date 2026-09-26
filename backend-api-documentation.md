@@ -848,7 +848,7 @@ Calculates:
 ---
 
 ### GET `/reports/group/:groupId`
-Get all previously generated reports for a group.
+List a group's saved reports, newest first. Returns summary fields only (no `breakdown` or `expenses`); fetch `GET /reports/:id` for the full report.
 
 **Auth Required:** Yes (must be a group member)
 
@@ -859,6 +859,7 @@ Get all previously generated reports for a group.
   "reports": [
     {
       "_id": "6579rep789",
+      "groupName": "Kirtipur Flat",
       "flatRent": 14000,
       "totalCost": 24285,
       "optimizedDividedCost": 4050,
@@ -972,6 +973,7 @@ updatedAt    Date
 ```
 _id                   ObjectId
 group                 ref: Group
+groupName             String (group name when generated; kept if the group is renamed)
 generatedBy           ref: User
 flatRent              Number
 billingPeriod         { startDate, endDate, startNepaliDate, endNepaliDate, label }
