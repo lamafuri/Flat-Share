@@ -1,11 +1,15 @@
 // Personal expense categories. Keys match the backend PersonalExpense model.
 export const CATEGORIES = [
-  { key: 'food', label: 'Food & Dining', emoji: '🍜', placeholder: 'e.g. Lunch, momo, tea' },
+  { key: 'food', label: 'Food & Dining', emoji: '🍜', placeholder: 'e.g. Momo, chowmein, pizza' },
+  { key: 'drinks', label: 'Cold Drinks', emoji: '🥤', placeholder: 'e.g. Xtreme, Red Bull' },
+  { key: 'transport', label: 'Transport', emoji: '🚌', placeholder: 'e.g. Tempo, Pathao, InDrive' },
+  { key: 'health', label: 'Medicines', emoji: '💊', placeholder: 'e.g. Medicines, checkup' },
+  { key: 'clothes', label: 'Clothes', emoji: '👕', placeholder: 'e.g. Jacket, shoes, T-shirt' },
+  { key: 'social', label: 'Friends Gathering', emoji: '🎉', placeholder: 'e.g. Party, outing' },
+  { key: 'tech', label: 'Tech Items', emoji: '💻', placeholder: 'e.g. Earphones, charger' },
   { key: 'groceries', label: 'Groceries', emoji: '🛒', placeholder: 'e.g. Vegetables, milk' },
-  { key: 'transport', label: 'Transport', emoji: '🚌', placeholder: 'e.g. Bus fare, fuel' },
   { key: 'bills', label: 'Rent & Bills', emoji: '💡', placeholder: 'e.g. Internet, electricity' },
-  { key: 'shopping', label: 'Shopping', emoji: '🛍️', placeholder: 'e.g. Clothes, shoes' },
-  { key: 'health', label: 'Health', emoji: '💊', placeholder: 'e.g. Medicine, checkup' },
+  { key: 'shopping', label: 'Shopping', emoji: '🛍️', placeholder: 'e.g. Gifts, household items' },
   { key: 'education', label: 'Education', emoji: '📚', placeholder: 'e.g. Books, course fee' },
   { key: 'entertainment', label: 'Entertainment', emoji: '🎬', placeholder: 'e.g. Movie, games' },
   { key: 'other', label: 'Other', emoji: '📦', placeholder: 'What did you spend on?' }

@@ -492,14 +492,15 @@ Add one or more expense items for the current user in a group.
 ```json
 {
   "items": [
-    { "itemName": "Tomatoes", "price": 120 },
-    { "itemName": "Cooking Oil", "price": 350 },
-    { "itemName": "Rice", "price": 2485 }
+    { "itemName": "Tomatoes", "price": 120, "category": "vegetables" },
+    { "itemName": "Cooking Oil", "price": 350, "category": "essentials" },
+    { "itemName": "Rice", "price": 2485, "category": "essentials" }
   ],
   "date": "2024-01-15"
 }
 ```
 > `date` is optional — defaults to today. Format: `YYYY-MM-DD`.
+> `category` is optional per item and defaults to `other`. One of `drinks`, `dairy`, `vegetables`, `fruits`, `essentials`, `instant`, `household`, `cleaning`, `other`; anything else returns `400`.
 > For Nepal groups, Nepali BS date is auto-calculated and stored.
 
 **Response `201`:**
@@ -745,6 +746,7 @@ The current user's spending in a date range, combining their personal expenses w
       "source": "group",
       "title": "LPG Gas",
       "amount": 1900,
+      "category": "household",
       "date": "2026-09-10T00:00:00.000Z",
       "expenseId": "6aa8da114990e56196b14601",
       "groupId": "6aa8da0f4990e56196b145f2",
@@ -949,7 +951,8 @@ createdAt    Date
 _id          ObjectId
 group        ref: Group
 user         ref: User
-items        [{ itemName: String, price: Number }]
+items        [{ itemName: String, price: Number, category: 'drinks'|'dairy'|'vegetables'|'fruits'|'essentials'|'instant'|'household'|'cleaning'|'other' }]
+             (items saved before categories existed have no category)
 date         Date
 nepaliDate   { year, month, day, monthName, fullDate }
 totalAmount  Number (auto-calculated sum of items)
@@ -962,7 +965,7 @@ _id          ObjectId
 user         ref: User
 title        String (required, max 100)
 amount       Number (> 0)
-category     'food'|'groceries'|'transport'|'bills'|'shopping'|'health'|'education'|'entertainment'|'other'
+category     'food'|'drinks'|'transport'|'health'|'clothes'|'social'|'tech'|'groceries'|'bills'|'shopping'|'education'|'entertainment'|'other'
 date         Date (calendar day at 12:00 UTC)
 note         String (max 500)
 createdAt    Date

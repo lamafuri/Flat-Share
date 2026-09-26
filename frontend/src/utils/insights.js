@@ -2,6 +2,7 @@
 // Sambat calendar, bucketing, totals and period comparison. No React here so
 // the calculations can be tested on their own.
 import { getCategory } from './expenses';
+import { GROUP_ITEMS, findItem, getGroupCategory } from './catalog';
 import {
   BS_MONTHS_SHORT, addDays, bsMonthRange, daysBetween, formatBS, fromBS, shiftBSMonth,
   startOfDay, toBS
@@ -190,20 +191,26 @@ export const bucketize = (entries, range, granularity, today = new Date()) => {
   return rows.map(row => ({ ...row, total: row.personal + row.group }));
 };
 
-// Where the money went: personal spending by category and group spending by
-// group, largest first.
+// Category of any entry. Group items saved before categories existed have
+// none, so fall back to the catalog entry with the same name.
+export const entryCategory = (entry) => {
+  if (entry.source === 'personal') return getCategory(entry.category);
+  return getGroupCategory(entry.category || findItem(GROUP_ITEMS, entry.title)?.category);
+};
+
+// Where the money went: personal and group spending by category, largest
+// first. The two sources stay separate rows (they are coloured differently).
 export const breakdown = (entries) => {
   const rows = new Map();
   for (const entry of entries) {
-    const isPersonal = entry.source === 'personal';
-    const category = isPersonal ? getCategory(entry.category) : null;
-    const id = isPersonal ? `category:${category.key}` : `group:${entry.groupId ?? entry.groupName}`;
+    const category = entryCategory(entry);
+    const id = `${entry.source}:${category.key}`;
     if (!rows.has(id)) {
       rows.set(id, {
         id,
         source: entry.source,
-        label: isPersonal ? category.label : entry.groupName,
-        emoji: isPersonal ? category.emoji : '🏠',
+        label: category.label,
+        emoji: category.emoji,
         amount: 0,
         count: 0
       });

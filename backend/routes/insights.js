@@ -63,6 +63,7 @@ router.get('/expenses', protect, async (req, res) => {
         source: 'group',
         title: item.itemName,
         amount: item.price,
+        category: item.category,
         date: expense.date,
         expenseId: expense._id.toString(),
         groupId: expense.group?._id?.toString() ?? null,

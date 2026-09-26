@@ -1,5 +1,18 @@
 import mongoose from 'mongoose';
 
+// Keys match GROUP_CATEGORIES in the frontend item catalog.
+export const GROUP_ITEM_CATEGORIES = [
+  'drinks',
+  'dairy',
+  'vegetables',
+  'fruits',
+  'essentials',
+  'instant',
+  'household',
+  'cleaning',
+  'other'
+];
+
 const expenseItemSchema = new mongoose.Schema({
   itemName: {
     type: String,
@@ -10,6 +23,12 @@ const expenseItemSchema = new mongoose.Schema({
     type: Number,
     required: [true, 'Price is required'],
     min: [0, 'Price cannot be negative']
+  },
+  // Items saved before categories existed have none; the client infers one
+  // from the item name.
+  category: {
+    type: String,
+    enum: GROUP_ITEM_CATEGORIES
   }
 });
 

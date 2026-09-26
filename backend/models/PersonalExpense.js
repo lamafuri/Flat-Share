@@ -1,12 +1,17 @@
 import mongoose from 'mongoose';
 
+// Keys match CATEGORIES in frontend/src/utils/expenses.js.
 export const PERSONAL_EXPENSE_CATEGORIES = [
   'food',
-  'groceries',
+  'drinks',
   'transport',
+  'health',
+  'clothes',
+  'social',
+  'tech',
+  'groceries',
   'bills',
   'shopping',
-  'health',
   'education',
   'entertainment',
   'other'

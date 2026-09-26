@@ -1,15 +1,23 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { flushSync } from "react-dom";
 import api from "../utils/api";
-import { COMMON_ITEMS } from "../utils/items";
+import { GROUP_CATEGORIES, GROUP_ITEMS, findItem, getGroupCategory, quickPicksFor, rememberItems, suggestionsFor } from "../utils/catalog";
 import { toISODate } from "../utils/nepaliDate";
+import ItemSearchInput from "./ItemSearchInput";
+import QuickPicks from "./QuickPicks";
 import Spinner from "./Spinner";
 
+const emptyRow = () => ({ itemName: "", price: "", category: "other" });
+
 export default function AddExpenseModal({ groupId, onClose, onAdded }) {
-  const [items, setItems] = useState([{ itemName: "", price: "" }]);
+  const [items, setItems] = useState([emptyRow()]);
   const [date, setDate] = useState(() => toISODate(new Date()));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const modalRef = useRef(null);
+  const priceRefs = useRef([]);
+  const suggestions = useMemo(() => suggestionsFor("group", GROUP_ITEMS), []);
+  const quickPicks = useMemo(() => quickPicksFor("group", GROUP_ITEMS), []);
 
   // Close on backdrop click
   const handleBackdrop = (e) => {
@@ -22,10 +30,36 @@ export default function AddExpenseModal({ groupId, onClose, onAdded }) {
     return () => { document.body.style.overflow = ""; };
   }, []);
 
-  const addRow = () => setItems(i => [...i, { itemName: "", price: "" }]);
+  const addRow = () => setItems(i => [...i, emptyRow()]);
   const removeRow = (idx) => setItems(i => i.filter((_, j) => j !== idx));
-  const updateRow = (idx, field, value) => {
-    setItems(items.map((item, j) => (j === idx ? { ...item, [field]: value } : item)));
+  const updateRow = (idx, changes) => {
+    setItems(rows => rows.map((row, j) => (j === idx ? { ...row, ...changes } : row)));
+  };
+
+  // A known item decides the category; anything else keeps the one picked.
+  const setItemName = (idx, itemName) => {
+    const known = findItem(suggestions, itemName);
+    updateRow(idx, { itemName, ...(known && { category: known.category }) });
+  };
+
+  // After a pick, move straight to that row's price. The row is rendered
+  // synchronously and focused right here: a focus deferred to an effect could
+  // land after the user has moved on and pull the cursor away from them.
+  const pickItem = (idx, item) => {
+    flushSync(() => updateRow(idx, { itemName: item.name, category: item.category }));
+    priceRefs.current[idx]?.focus();
+  };
+
+  // Quick picks fill the first empty row, or add a new one.
+  const quickAdd = (item) => {
+    const empty = items.findIndex(row => !row.itemName.trim());
+    const idx = empty === -1 ? items.length : empty;
+    flushSync(() => setItems(rows => {
+      const next = empty === -1 ? [...rows, emptyRow()] : [...rows];
+      next[idx] = { ...next[idx], itemName: item.name, category: item.category };
+      return next;
+    }));
+    priceRefs.current[idx]?.focus();
   };
 
   const total = items.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
@@ -36,8 +70,10 @@ export default function AddExpenseModal({ groupId, onClose, onAdded }) {
 
     const payload = items
       .map(item => ({
-        itemName: item.itemName.trim() || "Other",
+        // A known item is saved under its list name ("pathao" -> "Pathao").
+        itemName: findItem(suggestions, item.itemName)?.name || item.itemName.trim() || "Other",
         price: parseFloat(item.price) || 0,
+        category: item.category,
       }))
       .filter(i => i.itemName && i.price > 0);
 
@@ -49,6 +85,7 @@ export default function AddExpenseModal({ groupId, onClose, onAdded }) {
     setLoading(true);
     try {
       const { data } = await api.post(`/expenses/group/${groupId}`, { items: payload, date });
+      rememberItems("group", payload.map(i => ({ name: i.itemName, category: i.category })));
       onAdded(data.expense);
       onClose();
     } catch (err) {
@@ -111,60 +148,77 @@ export default function AddExpenseModal({ groupId, onClose, onAdded }) {
               />
             </div>
 
+            <div className="mb-4">
+              <QuickPicks picks={quickPicks} categoryFor={getGroupCategory} onPick={quickAdd} />
+            </div>
+
             {/* Items */}
             <div className="mb-3">
               <label className="label">Items</label>
-              <div className="space-y-2.5">
-                {items.map((item, idx) => (
-                  <div key={idx} className="flex gap-2 items-start">
-                    {/* Item name */}
-                    <div className="flex-1 min-w-0">
-                      <input
-                        className="input-field"
-                        value={item.itemName}
-                        onChange={e => updateRow(idx, "itemName", e.target.value)}
-                        list="item-name-list"
-                        placeholder="Item name"
-                        required
-                        aria-label={`Item ${idx + 1} name`}
-                      />
+              <div className="space-y-3">
+                {items.map((item, idx) => {
+                  const known = Boolean(item.itemName.trim() && findItem(suggestions, item.itemName));
+                  return (
+                    <div key={idx} className="flex gap-2 items-start">
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        {/* Item name */}
+                        <ItemSearchInput
+                          items={suggestions}
+                          categoryFor={getGroupCategory}
+                          value={item.itemName}
+                          onChange={name => setItemName(idx, name)}
+                          onPick={picked => pickItem(idx, picked)}
+                          placeholder="Search items, e.g. Milk"
+                          required
+                          aria-label={`Item ${idx + 1} name`}
+                        />
+                        {/* Category: set by a known item, chosen by hand otherwise */}
+                        <select
+                          value={item.category}
+                          onChange={e => updateRow(idx, { category: e.target.value })}
+                          disabled={known}
+                          className="w-full bg-transparent text-xs text-ink-400 border border-ink-800 rounded-md px-2 py-1.5 focus:outline-none focus:border-accent disabled:opacity-100 disabled:border-transparent disabled:px-0 disabled:appearance-none"
+                          aria-label={`Item ${idx + 1} category`}
+                          title={known ? "Set from the item list" : "Choose a category"}
+                        >
+                          {GROUP_CATEGORIES.map(c => (
+                            <option key={c.key} value={c.key} className="bg-ink-900">{c.emoji} {c.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {/* Price */}
+                      <div className="w-24 sm:w-28 shrink-0">
+                        <input
+                          ref={el => { priceRefs.current[idx] = el; }}
+                          type="number"
+                          className="input-field"
+                          placeholder="Price"
+                          min="0"
+                          step="1"
+                          value={item.price}
+                          onChange={e => updateRow(idx, { price: e.target.value })}
+                          required
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          aria-label={`Item ${idx + 1} price`}
+                        />
+                      </div>
+                      {/* Delete */}
+                      <button
+                        type="button"
+                        onClick={() => removeRow(idx)}
+                        disabled={items.length === 1}
+                        className="mt-1 btn-icon w-10 h-10 text-ink-600 hover:text-danger disabled:opacity-30 touch-manipulation shrink-0"
+                        aria-label={`Remove item ${idx + 1}`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
-                    {/* Price */}
-                    <div className="w-24 sm:w-28 shrink-0">
-                      <input
-                        type="number"
-                        className="input-field"
-                        placeholder="Price"
-                        min="0"
-                        step="1"
-                        value={item.price}
-                        onChange={e => updateRow(idx, "price", e.target.value)}
-                        required
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        aria-label={`Item ${idx + 1} price`}
-                      />
-                    </div>
-                    {/* Delete */}
-                    <button
-                      type="button"
-                      onClick={() => removeRow(idx)}
-                      disabled={items.length === 1}
-                      className="mt-1 btn-icon w-10 h-10 text-ink-600 hover:text-danger disabled:opacity-30 touch-manipulation shrink-0"
-                      aria-label={`Remove item ${idx + 1}`}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-
-              {/* Datalist for suggestions */}
-              <datalist id="item-name-list">
-                {COMMON_ITEMS.map(ci => <option key={ci} value={ci} />)}
-              </datalist>
 
               {/* Add row */}
               <button
