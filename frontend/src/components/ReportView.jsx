@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import api from '../utils/api';
 import Spinner from './Spinner';
+import { formatRs } from '../utils/expenses';
 
 export default function ReportView({ groupId, group }) {
   const [flatRent, setFlatRent] = useState('');
@@ -114,12 +115,12 @@ export default function ReportView({ groupId, group }) {
 
             {/* Summary grid — 2 cols on mobile, 3 on sm+ */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-5 sm:mb-6">
-              <SummaryBox label="Flat Rent" value={`Rs ${report.flatRent.toLocaleString()}`} />
-              <SummaryBox label="Total Expenses" value={`Rs ${report.totalExpenses.toLocaleString()}`} />
-              <SummaryBox label="Total Cost" value={`Rs ${report.totalCost.toLocaleString()}`} accent className="col-span-2 sm:col-span-1" />
+              <SummaryBox label="Flat Rent" value={formatRs(report.flatRent)} />
+              <SummaryBox label="Total Expenses" value={formatRs(report.totalExpenses)} />
+              <SummaryBox label="Total Cost" value={formatRs(report.totalCost)} accent className="col-span-2 sm:col-span-1" />
               <SummaryBox label="Members" value={report.memberCount} />
               <SummaryBox label="Actual Split" value={`Rs ${report.actualDividedCost.toFixed(2)}`} />
-              <SummaryBox label="Optimized Split" value={`Rs ${report.optimizedDividedCost.toLocaleString()}`} accent />
+              <SummaryBox label="Optimized Split" value={formatRs(report.optimizedDividedCost)} accent />
             </div>
 
             {/* Breakdown table */}
@@ -142,12 +143,12 @@ export default function ReportView({ groupId, group }) {
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <span className="text-ink-500">Spent</span>
-                      <p className="font-mono font-medium text-ink-300 mt-0.5">Rs {member.totalExpense.toLocaleString()}</p>
+                      <p className="font-mono font-medium text-ink-300 mt-0.5">{formatRs(member.totalExpense)}</p>
                     </div>
                     <div>
                       <span className="text-ink-500">To Pay</span>
                       <p className={`font-mono font-semibold mt-0.5 ${member.toPay < 0 ? 'text-success' : 'text-warning'}`}>
-                        Rs {member.toPay.toLocaleString()}
+                        {formatRs(member.toPay)}
                       </p>
                     </div>
                   </div>
@@ -170,9 +171,9 @@ export default function ReportView({ groupId, group }) {
                   {report.breakdown.map((member, idx) => (
                     <tr key={idx} className="hover:bg-ink-800/50 transition-colors">
                       <td className="px-4 py-3 font-medium text-ink-100">{member.fullName}</td>
-                      <td className="px-4 py-3 text-right font-mono text-ink-300">Rs {member.totalExpense.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right font-mono text-ink-300">{formatRs(member.totalExpense)}</td>
                       <td className={`px-4 py-3 text-right font-mono font-semibold ${member.toPay < 0 ? 'text-success' : 'text-warning'}`}>
-                        Rs {member.toPay.toLocaleString()}
+                        {formatRs(member.toPay)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {member.toPay < 0 ? (
@@ -191,9 +192,9 @@ export default function ReportView({ groupId, group }) {
 
             {/* Calculation note */}
             <div className="mt-4 bg-ink-800/50 border border-ink-700 rounded-xl p-3 sm:p-4 text-xs text-ink-500 space-y-1.5">
-              <p>• Total Cost = Rs {report.flatRent.toLocaleString()} (rent) + Rs {report.totalExpenses.toLocaleString()} (expenses) = <span className="text-ink-300">Rs {report.totalCost.toLocaleString()}</span></p>
-              <p>• Actual Split = Rs {report.totalCost.toLocaleString()} ÷ {report.memberCount} = <span className="text-ink-300">Rs {report.actualDividedCost.toFixed(2)}</span></p>
-              <p>• Optimized Split (rounded to nearest 10) = <span className="text-ink-300">Rs {report.optimizedDividedCost.toLocaleString()}</span></p>
+              <p>• Total Cost = {formatRs(report.flatRent)} (rent) + {formatRs(report.totalExpenses)} (expenses) = <span className="text-ink-300">{formatRs(report.totalCost)}</span></p>
+              <p>• Actual Split = {formatRs(report.totalCost)} ÷ {report.memberCount} = <span className="text-ink-300">Rs {report.actualDividedCost.toFixed(2)}</span></p>
+              <p>• Optimized Split (rounded to nearest 10) = <span className="text-ink-300">{formatRs(report.optimizedDividedCost)}</span></p>
               <p>• To Pay = Optimized Split − Person's Expenses</p>
             </div>
 
@@ -214,12 +215,12 @@ export default function ReportView({ groupId, group }) {
                               <p className="text-sm text-ink-300 truncate">{item.itemName}</p>
                               <p className="text-xs text-ink-600">{item.nepaliDate || new Date(item.date).toLocaleDateString()}</p>
                             </div>
-                            <span className="font-mono text-sm text-ink-300 ml-3 shrink-0">Rs {item.price.toLocaleString()}</span>
+                            <span className="font-mono text-sm text-ink-300 ml-3 shrink-0">{formatRs(item.price)}</span>
                           </div>
                         ))}
                         <div className="flex justify-between px-3 py-2 bg-ink-700/50">
                           <span className="text-xs font-medium text-ink-400">Total</span>
-                          <span className="font-mono font-semibold text-sm text-ink-200">Rs {member.totalExpense.toLocaleString()}</span>
+                          <span className="font-mono font-semibold text-sm text-ink-200">{formatRs(member.totalExpense)}</span>
                         </div>
                       </div>
 
@@ -240,12 +241,12 @@ export default function ReportView({ groupId, group }) {
                                   {item.nepaliDate || new Date(item.date).toLocaleDateString()}
                                 </td>
                                 <td className="px-3 py-2 text-ink-300">{item.itemName}</td>
-                                <td className="px-3 py-2 text-right font-mono text-ink-300">Rs {item.price.toLocaleString()}</td>
+                                <td className="px-3 py-2 text-right font-mono text-ink-300">{formatRs(item.price)}</td>
                               </tr>
                             ))}
                             <tr className="bg-ink-800/30">
                               <td colSpan={2} className="px-3 py-2 text-right text-xs font-medium text-ink-400">Total</td>
-                              <td className="px-3 py-2 text-right font-mono font-semibold text-ink-200">Rs {member.totalExpense.toLocaleString()}</td>
+                              <td className="px-3 py-2 text-right font-mono font-semibold text-ink-200">{formatRs(member.totalExpense)}</td>
                             </tr>
                           </tbody>
                         </table>
