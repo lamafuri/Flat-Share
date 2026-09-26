@@ -9,7 +9,7 @@ A clean, production-ready expense-sharing web app for people living together in 
 - 🔐 **Auth** — Register, email OTP verification, login, forgot password
 - 🏠 **Groups** — Create flat groups; the admin adds and removes members by name or email
 - 🛒 **Inventory** — Each member adds their grocery & household purchases. Items are suggested as you type (vegetables, dairy, cooking essentials, LPG gas, cleaning supplies…) and picking one sets its category; anything else can be given a category by hand
-- ⚡ **Quick add** — Your most-used items appear as one-tap chips when adding group or personal expenses
+- ⚡ **Quick add** — One-tap shortcuts for everyday items (groups: water, tomatoes, onions, cooking oil, milk, dahi, dhaniya, masala, chillies, chauchau; personal: Xtreme, Tempo, Yango, InDrive, Pathao, momo, burger, chowmein), followed by your own most-used items
 - 💸 **Personal Expenses** — Track your own day-to-day spending by category, month by month (BS calendar)
 - 📊 **Expense Insights** — Charts of your personal spending plus what you paid in groups, over this month, last month, 3/6 months, this year or a custom range, compared with the previous period
 - 📅 **Nepali Calendar** — Dates shown in Bikram Sambat (BS) for Nepal groups

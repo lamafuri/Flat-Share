@@ -35,7 +35,7 @@ export const GROUP_ITEMS = toItems({
     'Chiura (Beaten Rice)', 'Masala', 'Turmeric Powder', 'Jeera (Cumin)',
     'Dhaniya (Coriander Powder)', 'Garam Masala'
   ],
-  instant: ['Noodles', 'Biscuits', 'Bread'],
+  instant: ['Noodles (Chauchau)', 'Biscuits', 'Bread'],
   household: ['LPG Gas', 'Water (Gallon)'],
   cleaning: ['Dish Soap', 'Comfort (Fabric Conditioner)', 'Detergent', 'Laundry Soap']
 });
@@ -50,11 +50,17 @@ export const PERSONAL_ITEMS = toItems({
   social: ['Friends Gathering']
 });
 
-// Shown as quick picks until the user's own history takes over.
-const DEFAULT_PICKS = {
-  group: ['Milk', 'Tomatoes', 'Onions', 'Potatoes', 'Rice', 'LPG Gas', 'Water (Gallon)', 'Noodles'],
-  personal: ['Momo', 'Chowmein', 'Tempo', 'Pathao', 'Red Bull', 'Medicines', 'Friends Gathering', 'Lunch']
+// Shortcuts always shown first in the quick-add chips, in this order.
+const PINNED_PICKS = {
+  group: [
+    'Water (Gallon)', 'Tomatoes', 'Onions', 'Cooking Oil', 'Milk', 'Dahi (Curd)',
+    'Dhaniya (Coriander Leaves)', 'Masala', 'Green Chillies', 'Noodles (Chauchau)'
+  ],
+  personal: ['Xtreme', 'Tempo', 'Yango', 'InDrive', 'Pathao', 'Momo', 'Burger', 'Chowmein']
 };
+
+// After the shortcuts, this many of the user's other most-used items.
+const EXTRA_PICKS = 3;
 
 // Lowercase, punctuation to spaces: "Dahi (Curd)" -> "dahi curd".
 const normalize = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -139,12 +145,11 @@ export const suggestionsFor = (kind, catalog) => {
   return [...catalog, ...custom];
 };
 
-export const quickPicksFor = (kind, catalog, count = 8) => {
-  const picks = [];
-  const add = (item) => {
-    if (item && picks.length < count && !findItem(picks, item.name)) picks.push(item);
-  };
-  usedItems(kind).forEach(item => add(findItem(catalog, item.name) || item));
-  DEFAULT_PICKS[kind].forEach(name => add(findItem(catalog, name)));
-  return picks;
+export const quickPicksFor = (kind, catalog) => {
+  const pinned = PINNED_PICKS[kind].map(name => findItem(catalog, name)).filter(Boolean);
+  const extras = usedItems(kind)
+    .map(item => findItem(catalog, item.name) || item)
+    .filter(item => !findItem(pinned, item.name))
+    .slice(0, EXTRA_PICKS);
+  return [...pinned, ...extras];
 };
