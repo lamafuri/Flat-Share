@@ -3,13 +3,9 @@ import Expense from '../models/Expense.js';
 import Group from '../models/Group.js';
 import { protect } from '../middleware/auth.js';
 import { adToBS } from '../utils/nepaliDate.js';
+import { isMember } from '../utils/groupAccess.js';
 
 const router = express.Router();
-
-const isMember = (group, userId) => {
-  return group.members.some(m => m.user.toString() === userId.toString()) ||
-    group.admin.toString() === userId.toString();
-};
 
 // @route  POST /api/expenses/group/:groupId
 // @desc   Add expenses for a group

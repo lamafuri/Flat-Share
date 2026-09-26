@@ -4,6 +4,7 @@ import Group from '../models/Group.js';
 import Expense from '../models/Expense.js';
 import { protect } from '../middleware/auth.js';
 import { adToBS } from '../utils/nepaliDate.js';
+import { isMember } from '../utils/groupAccess.js';
 
 const router = express.Router();
 
@@ -165,10 +166,7 @@ router.get('/group/:groupId', protect, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Group not found' });
     }
 
-    const isMember = group.members.some(m => m.user.toString() === req.user._id.toString()) ||
-      group.admin.toString() === req.user._id.toString();
-
-    if (!isMember) {
+    if (!isMember(group, req.user._id)) {
       return res.status(403).json({ success: false, message: 'Not a member of this group' });
     }
 
@@ -195,10 +193,7 @@ router.get('/:id', protect, async (req, res) => {
     }
 
     const group = await Group.findById(report.group._id);
-    const isMember = group.members.some(m => m.user.toString() === req.user._id.toString()) ||
-      group.admin.toString() === req.user._id.toString();
-
-    if (!isMember) {
+    if (!isMember(group, req.user._id)) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 

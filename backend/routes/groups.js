@@ -2,20 +2,9 @@ import express from 'express';
 import Group from '../models/Group.js';
 import User from '../models/User.js';
 import { protect } from '../middleware/auth.js';
+import { getAdminId, isMember } from '../utils/groupAccess.js';
 
 const router = express.Router();
-
-const getAdminId = (group) => {
-  return group.admin?._id ? group.admin._id.toString() : group.admin.toString();
-};
-
-const isMember = (group, userId) => {
-  const uid = userId.toString();
-  return group.members.some(m => {
-    const memberId = m.user?._id ? m.user._id.toString() : m.user.toString();
-    return memberId === uid;
-  }) || getAdminId(group) === uid;
-};
 
 // @route  GET /api/groups
 router.get('/', protect, async (req, res) => {
