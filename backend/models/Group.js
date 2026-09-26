@@ -21,12 +21,6 @@ const groupSchema = new mongoose.Schema({
   members: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     joinedAt: { type: Date, default: Date.now }
-  }],
-  invitations: [{
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    email: String,
-    status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
-    invitedAt: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });
 

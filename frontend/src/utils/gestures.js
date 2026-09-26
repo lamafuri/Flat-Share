@@ -47,31 +47,3 @@ export function useSwipe(handlers = {}, threshold = 60) {
 
   return { onTouchStart, onTouchEnd };
 }
-
-/**
- * usePWAInstall — handle PWA install prompt
- */
-export function usePWAInstall() {
-  const deferredPrompt = useRef(null);
-
-  const canInstall = useRef(false);
-
-  if (typeof window !== 'undefined') {
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt.current = e;
-      canInstall.current = true;
-    });
-  }
-
-  const install = useCallback(async () => {
-    if (!deferredPrompt.current) return false;
-    deferredPrompt.current.prompt();
-    const { outcome } = await deferredPrompt.current.userChoice;
-    deferredPrompt.current = null;
-    canInstall.current = false;
-    return outcome === 'accepted';
-  }, []);
-
-  return { canInstall: canInstall.current, install };
-}

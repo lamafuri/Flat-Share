@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import api from '../utils/api';
 import { CATEGORIES, getCategory, getLastCategory, rememberCategory } from '../utils/expenses';
 import { addDays, formatBS, parseISODate, toISODate } from '../utils/nepaliDate';
+import Spinner from './Spinner';
 
 // Add or edit a personal expense. Bottom sheet on mobile, dialog on desktop.
 // `expense` is the entry being edited; omit it to add a new one.
@@ -266,8 +267,4 @@ export default function PersonalExpenseSheet({ expense, onClose, onSaved, onDele
       </div>
     </div>
   );
-}
-
-function Spinner() {
-  return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" aria-hidden />;
 }

@@ -6,6 +6,7 @@ import api from '../utils/api';
 import { SOURCE_COLORS, formatRs } from '../utils/expenses';
 import { entriesInRange, resolveRange, summarize } from '../utils/insights';
 import { toBS, toISODate } from '../utils/nepaliDate';
+import Spinner from '../components/Spinner';
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
@@ -100,10 +101,6 @@ export default function ProfilePage() {
       </div>
     </Layout>
   );
-}
-
-function Spinner() {
-  return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" aria-hidden />;
 }
 
 // This month's spending at a glance, linking to the full tracker.

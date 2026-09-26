@@ -134,7 +134,7 @@ export default function SpendingOverTimeChart({ buckets, source, granularity }) 
   );
 }
 
-export function ViewToggle({ view, onChange }) {
+function ViewToggle({ view, onChange }) {
   return (
     <div className="flex p-0.5 bg-ink-800 rounded-lg shrink-0" role="group" aria-label="Display as">
       {['chart', 'table'].map(option => (

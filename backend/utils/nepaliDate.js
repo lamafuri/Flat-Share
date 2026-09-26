@@ -56,9 +56,3 @@ export const adToBS = (adDate) => {
 
   return { year: bs.year, month, day: bs.date, monthName, fullDate };
 };
-
-export const getCurrentNepaliDate = () => {
-  return adToBS(new Date());
-};
-
-export const BS_MONTH_NAMES = BS_MONTHS;

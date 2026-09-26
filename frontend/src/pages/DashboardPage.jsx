@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import PersonalExpensesPanel from '../components/PersonalExpensesPanel';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import Spinner from '../components/Spinner';
 
 const COUNTRIES = ['Nepal', 'India', 'Other'];
 
@@ -197,7 +198,7 @@ export default function DashboardPage() {
             <div className="text-center py-12 sm:py-16 card fade-in">
               <div className="text-4xl mb-3" aria-hidden>🏠</div>
               <p className="text-ink-300 font-medium text-sm sm:text-base">No groups yet</p>
-              <p className="text-ink-500 text-xs sm:text-sm mt-1">Create a group or wait for an invitation</p>
+              <p className="text-ink-500 text-xs sm:text-sm mt-1">Create a group or ask a group admin to add you</p>
               <button
                 onClick={() => setShowCreate(true)}
                 className="btn-primary mt-4 inline-flex items-center gap-1.5"
@@ -258,8 +259,4 @@ function GroupCard({ group, userId }) {
       </div>
     </Link>
   );
-}
-
-function Spinner() {
-  return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" aria-hidden />;
 }

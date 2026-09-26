@@ -11,7 +11,7 @@ export const CATEGORIES = [
   { key: 'other', label: 'Other', emoji: '📦', placeholder: 'What did you spend on?' }
 ];
 
-export const CATEGORY_BY_KEY = Object.fromEntries(CATEGORIES.map(c => [c.key, c]));
+const CATEGORY_BY_KEY = Object.fromEntries(CATEGORIES.map(c => [c.key, c]));
 
 export const getCategory = (key) => CATEGORY_BY_KEY[key] || CATEGORY_BY_KEY.other;
 

@@ -7,6 +7,8 @@ import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useSwipe } from '../utils/gestures';
 import { formatAD, formatBSNumeric } from '../utils/nepaliDate';
+import Spinner from '../components/Spinner';
+import { formatRs } from '../utils/expenses';
 
 const TABS = ['my', 'all', 'report'];
 const TAB_LABELS = { my: 'My Items', all: 'All Members', report: 'Report' };
@@ -308,7 +310,7 @@ export default function GroupPage() {
                         </span>
                         <span className="font-medium text-ink-200 text-sm sm:text-base truncate">{expUser.fullName}</span>
                       </div>
-                      <span className="text-sm font-mono text-ink-400 shrink-0 ml-2">Rs {total.toLocaleString()}</span>
+                      <span className="text-sm font-mono text-ink-400 shrink-0 ml-2">{formatRs(total)}</span>
                     </div>
                     <div className="space-y-1.5 pl-0 sm:pl-8">
                       {expenses.map(expense => (
@@ -712,7 +714,7 @@ function ExpenseCard({ expense, canDelete, onDelete, country, compact }) {
           </p>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-2">
-          <span className="font-mono text-sm font-semibold text-ink-100">Rs {expense.totalAmount.toLocaleString()}</span>
+          <span className="font-mono text-sm font-semibold text-ink-100">{formatRs(expense.totalAmount)}</span>
           {canDelete && (
             <button onClick={e => { e.stopPropagation(); onDelete(expense._id); }} className="text-ink-700 hover:text-danger transition-colors touch-manipulation p-1" aria-label="Delete expense">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -726,15 +728,11 @@ function ExpenseCard({ expense, canDelete, onDelete, country, compact }) {
           {expense.items.map((item, idx) => (
             <div key={idx} className="flex justify-between items-center text-sm">
               <span className="text-ink-400 truncate max-w-[70%]">{item.itemName}</span>
-              <span className="font-mono text-ink-300">Rs {item.price.toLocaleString()}</span>
+              <span className="font-mono text-ink-300">{formatRs(item.price)}</span>
             </div>
           ))}
         </div>
       )}
     </div>
   );
-}
-
-function Spinner() {
-  return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" aria-hidden />;
 }

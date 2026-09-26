@@ -303,7 +303,7 @@ Update the current user's profile (name only).
 ## Users
 
 ### GET `/users/search?q=<query>`
-Search for registered users by name or email (for inviting to groups).
+Search for registered users by name or email (for adding members to groups).
 
 **Auth Required:** Yes
 
@@ -393,7 +393,6 @@ Create a new group. The creator automatically becomes the admin and first member
     "country": "Nepal",
     "admin": { "_id": "...", "fullName": "Furi Lama", "email": "furi@example.com" },
     "members": [{ "user": { "_id": "...", "fullName": "Furi Lama" }, "joinedAt": "..." }],
-    "invitations": [],
     "createdAt": "2024-01-15T10:30:00.000Z"
   }
 }
@@ -418,15 +417,7 @@ Get details of a single group. Only accessible by group members.
     "name": "Kirtipur Flat",
     "country": "Nepal",
     "admin": { "_id": "...", "fullName": "Furi Lama" },
-    "members": [...],
-    "invitations": [
-      {
-        "user": { "_id": "...", "fullName": "Dawa Sherpa" },
-        "email": "dawa@example.com",
-        "status": "pending",
-        "invitedAt": "2024-01-16T08:00:00.000Z"
-      }
-    ]
+    "members": [...]
   }
 }
 ```
@@ -437,8 +428,8 @@ Get details of a single group. Only accessible by group members.
 
 ---
 
-### POST `/groups/:id/invite`
-Invite a user to the group by user ID or email. Admin only.
+### POST `/groups/:id/add-member`
+Add a registered user to the group by user ID or email. They become a member immediately. Admin only.
 
 **Auth Required:** Yes (Admin only)
 
@@ -460,64 +451,15 @@ Invite a user to the group by user ID or email. Admin only.
 ```json
 {
   "success": true,
-  "message": "Invitation sent successfully"
+  "message": "Dawa Sherpa added to the group",
+  "group": { "...": "group with admin and members populated" }
 }
 ```
 
 **Error Responses:**
-- `400` — User already a member or already invited
-- `403` — Only admin can invite members
-- `404` — User not found
-
----
-
-### GET `/groups/invitations/mine`
-Get all pending group invitations for the current user.
-
-**Auth Required:** Yes
-
-**Response `200`:**
-```json
-{
-  "success": true,
-  "invitations": [
-    {
-      "groupId": "6579group123",
-      "groupName": "Kirtipur Flat",
-      "country": "Nepal",
-      "admin": { "_id": "...", "fullName": "Furi Lama", "email": "furi@example.com" },
-      "invitedAt": "2024-01-16T08:00:00.000Z"
-    }
-  ]
-}
-```
-
----
-
-### POST `/groups/:id/respond-invite`
-Accept or reject a group invitation.
-
-**Auth Required:** Yes
-
-**Request Body:**
-```json
-{
-  "action": "accept"
-}
-```
-> `action`: `"accept"` | `"reject"`
-
-**Response `200`:**
-```json
-{
-  "success": true,
-  "message": "Joined the group!"
-}
-```
-
-**Error Responses:**
-- `400` — `action` is not `accept` or `reject`
-- `404` — No pending invitation found
+- `400` — User is already a member of this group
+- `403` — Only admin can add members
+- `404` — Group not found, or user not found
 
 ---
 
@@ -998,7 +940,6 @@ name         String (required, max 100)
 country      String ('Nepal'|'India'|'Other')
 admin        ref: User
 members      [{ user: ref:User, joinedAt: Date }]
-invitations  [{ user: ref:User, email, status: 'pending'|'accepted'|'rejected', invitedAt }]
 createdAt    Date
 ```
 

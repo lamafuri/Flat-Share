@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import ServerWakeNotice from '../components/ServerWakeNotice';
+import Spinner from '../components/Spinner';
 
 export default function VerifyEmailPage() {
   const navigate = useNavigate();
@@ -130,8 +131,4 @@ export default function VerifyEmailPage() {
       </div>
     </div>
   );
-}
-
-function Spinner() {
-  return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />;
 }

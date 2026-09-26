@@ -30,7 +30,7 @@ const monthsSpan = (month, count) => ({
 });
 
 // Human label for a range, e.g. "Bhadra 1 – 31, 2083" or "Ashad 1 – Bhadra 31, 2083".
-export const formatRangeLabel = ({ start, end }) => {
+const formatRangeLabel = ({ start, end }) => {
   const a = toBS(start);
   const b = toBS(end);
   if (!a || !b) return `${formatBS(start)} – ${formatBS(end)}`;

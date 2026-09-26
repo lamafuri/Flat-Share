@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import ServerWakeNotice from '../components/ServerWakeNotice';
+import Spinner from '../components/Spinner';
 
 const STEP = { EMAIL: 1, OTP: 2, PASSWORD: 3, DONE: 4 };
 
@@ -150,8 +151,4 @@ export default function ForgotPasswordPage() {
       </div>
     </div>
   );
-}
-
-function Spinner() {
-  return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />;
 }

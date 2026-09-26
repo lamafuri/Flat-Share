@@ -10,7 +10,6 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import GroupPage from './pages/GroupPage';
 import ProfilePage from './pages/ProfilePage';
-import InvitationsPage from './pages/InvitationsPage';
 
 // Loaded on demand: the charting library is large and only this page needs it.
 const ExpensesPage = lazy(() => import('./pages/ExpensesPage'));
@@ -52,7 +51,6 @@ export default function App() {
           <Route path="/groups/:id" element={<PrivateRoute><GroupPage /></PrivateRoute>} />
           <Route path="/expenses" element={<PrivateRoute><Suspense fallback={<PageSpinner />}><ExpensesPage /></Suspense></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-          <Route path="/invitations" element={<PrivateRoute><InvitationsPage /></PrivateRoute>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
