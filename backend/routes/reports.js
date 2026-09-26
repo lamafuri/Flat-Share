@@ -125,6 +125,7 @@ router.post('/group/:groupId/generate', protect, async (req, res) => {
     // Save report
     const report = await Report.create({
       group: group._id,
+      groupName: group.name,
       generatedBy: req.user._id,
       flatRent: Number(flatRent),
       billingPeriod: {
@@ -157,7 +158,8 @@ router.post('/group/:groupId/generate', protect, async (req, res) => {
 });
 
 // @route  GET /api/reports/group/:groupId
-// @desc   Get all reports for a group
+// @desc   List a group's saved reports (newest first). Summary fields only;
+//         fetch GET /api/reports/:id for the breakdown.
 router.get('/group/:groupId', protect, async (req, res) => {
   try {
     const group = await Group.findById(req.params.groupId);
@@ -171,6 +173,7 @@ router.get('/group/:groupId', protect, async (req, res) => {
     }
 
     const reports = await Report.find({ group: req.params.groupId })
+      .select('-breakdown -expenses')
       .populate('generatedBy', 'fullName')
       .sort({ createdAt: -1 });
 

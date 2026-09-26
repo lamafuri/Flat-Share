@@ -6,6 +6,9 @@ const reportSchema = new mongoose.Schema({
     ref: 'Group',
     required: true
   },
+  // Name of the group when the report was generated, so a saved report
+  // keeps its title (and PDF filename) if the group is renamed later.
+  groupName: String,
   generatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
