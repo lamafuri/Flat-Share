@@ -17,7 +17,7 @@ A clean, production-ready expense-sharing web app for people living together in 
   - `Actual Split = Total Cost ÷ Members`
   - `Optimized Split = Round to nearest 10`
   - `To Pay = Optimized Split − Person's Expenses`
-- 🖨️ **Print** — Clean printable report with itemized breakdown per person
+- 📄 **Saved Reports & PDF** — Every report is saved with the time it was generated; reopen it any time and download it as `{group name}.pdf`, with an itemized breakdown per person
 
 ---
 
@@ -171,8 +171,9 @@ npm run dev
 1. Go to **Report** tab inside the group
 2. Enter the flat rent for this billing cycle
 3. Optionally filter by date range
-4. Click **Generate Report** — the bill appears instantly
-5. Click **Print** for a printable version
+4. Click **Generate Report** — the bill appears instantly and is saved
+5. Click **Download PDF** to save it as `{group name}.pdf` (or **Print**)
+6. Past reports are listed under **Saved Reports** with the time they were generated; tap one to reopen or download it again
 
 ---
 
