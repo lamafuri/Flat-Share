@@ -278,3 +278,56 @@ export const comparePeriods = (currentTotal, series, range) => {
   if (!previousTotal) return { previousTotal, change: null };
   return { previousTotal, change: (currentTotal - previousTotal) / previousTotal };
 };
+
+// Previous-period entries up to the same day number as the current period, so
+// a period still running is compared like for like (as comparePeriods does).
+export const previousAtSamePoint = (previousEntries, range) => {
+  if (!range.inProgress) return previousEntries;
+  const cutoff = addDays(range.previous.start, range.elapsedDays - 1);
+  return previousEntries.filter(entry => startOfDay(entry.date) <= cutoff);
+};
+
+// Adds `previousAmount` and `delta` to each breakdown row. Categories with
+// spending only in the previous period come back separately as `dropped`.
+export const compareBreakdown = (currentRows, previousRows) => {
+  const previousById = new Map(previousRows.map(row => [row.id, row]));
+  const rows = currentRows.map(row => {
+    const previousAmount = previousById.get(row.id)?.amount ?? 0;
+    return { ...row, previousAmount, delta: row.amount - previousAmount };
+  });
+  const currentIds = new Set(currentRows.map(row => row.id));
+  const dropped = previousRows
+    .filter(row => !currentIds.has(row.id))
+    .map(row => ({ ...row, amount: 0, share: 0, count: 0, previousAmount: row.amount, delta: -row.amount }));
+  return { rows, dropped };
+};
+
+// The categories whose spending changed most in rupees, either way.
+export const biggestMovers = (rows, limit = 3) =>
+  rows
+    .filter(row => Math.abs(row.delta) >= 1)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+    .slice(0, limit);
+
+// Too few days make a straight-line estimate swing wildly.
+const MIN_PROJECTION_DAYS = 3;
+
+// End-of-period estimate at the daily average so far; null when the period
+// is over or has only just started.
+export const projectTotal = (total, range) => {
+  if (!range.inProgress || range.elapsedDays < MIN_PROJECTION_DAYS) return null;
+  return (total / range.elapsedDays) * range.totalDays;
+};
+
+// Extends the pace series with a straight `projected` line from today to the
+// end of the current period.
+export const addProjection = (points, range, projected) => {
+  if (projected === null) return points;
+  const last = range.elapsedDays - 1;
+  const base = points[last]?.current ?? 0;
+  const rate = (projected - base) / Math.max(range.totalDays - 1 - last, 1);
+  return points.map((point, i) => ({
+    ...point,
+    projected: i >= last && i < range.totalDays ? base + rate * (i - last) : null
+  }));
+};

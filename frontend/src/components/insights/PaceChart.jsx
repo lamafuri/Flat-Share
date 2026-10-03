@@ -5,7 +5,8 @@ import { formatBS, formatBSShort } from '../../utils/nepaliDate';
 
 // Running total for this period against the previous one, by day number, so
 // the reader can see whether they are spending faster or slower than before.
-export default function PaceChart({ points, currentName, previousName, currentTotal, previousAtSamePoint }) {
+// `projected` (end-of-period estimate) adds a dashed line from today onward.
+export default function PaceChart({ points, currentName, previousName, currentTotal, previousAtSamePoint, projected = null }) {
   const lastCurrentIndex = points.reduce((last, point, i) => (point.current !== null ? i : last), -1);
 
   const tickFor = (day) => {
@@ -23,6 +24,9 @@ export default function PaceChart({ points, currentName, previousName, currentTo
       <div className="flex flex-wrap gap-x-4 gap-y-1 mb-2">
         <LegendItem shape="line" color={PERIOD_COLORS.current} label={currentName} value={formatRs(currentTotal)} />
         <LegendItem shape="line" color={PERIOD_COLORS.previous} label={`${previousName}, same point`} value={formatRs(previousAtSamePoint)} />
+        {projected !== null && (
+          <LegendItem shape="dash" color={PERIOD_COLORS.current} label="Projected" value={formatRs(Math.round(projected))} />
+        )}
       </div>
 
       <div className="h-56 -ml-2">
@@ -55,6 +59,9 @@ export default function PaceChart({ points, currentName, previousName, currentTo
                 if (point.current !== null) {
                   rows.push({ name: `${currentName} · ${formatBS(point.currentDate, { withYear: false })}`, value: point.current, color: PERIOD_COLORS.current });
                 }
+                if (point.current === null && point.projected != null) {
+                  rows.push({ name: `Projected · ${formatBS(point.currentDate, { withYear: false })}`, value: Math.round(point.projected), color: PERIOD_COLORS.current });
+                }
                 if (point.previous !== null) {
                   rows.push({ name: `${previousName} · ${formatBS(point.previousDate, { withYear: false })}`, value: point.previous, color: PERIOD_COLORS.previous });
                 }
@@ -73,6 +80,21 @@ export default function PaceChart({ points, currentName, previousName, currentTo
               activeDot={{ r: 4, fill: PERIOD_COLORS.previous, stroke: CHART_SURFACE, strokeWidth: 2 }}
               isAnimationActive={false}
             />
+            {projected !== null && (
+              <Line
+                type="linear"
+                dataKey="projected"
+                name="Projected"
+                stroke={PERIOD_COLORS.current}
+                strokeOpacity={0.6}
+                strokeWidth={2}
+                strokeDasharray="4 4"
+                dot={false}
+                activeDot={false}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            )}
             <Line
               type="monotone"
               dataKey="current"

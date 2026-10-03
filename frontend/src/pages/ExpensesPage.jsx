@@ -10,8 +10,9 @@ import SpendingOverTimeChart from '../components/insights/SpendingOverTimeChart'
 import api from '../utils/api';
 import { SOURCE_COLORS, formatRs } from '../utils/expenses';
 import {
-  MAX_CUSTOM_RANGE_DAYS, RANGE_PRESETS, SOURCE_FILTERS, breakdown, bucketize, comparePeriods,
-  cumulativeSeries, entriesInRange, entryCategory, filterBySource, granularityFor, resolveRange, summarize
+  MAX_CUSTOM_RANGE_DAYS, RANGE_PRESETS, SOURCE_FILTERS, addProjection, biggestMovers, breakdown, bucketize,
+  compareBreakdown, comparePeriods, cumulativeSeries, entriesInRange, entryCategory, filterBySource, granularityFor,
+  previousAtSamePoint, projectTotal, resolveRange, summarize
 } from '../utils/insights';
 import { addDays, daysBetween, formatBS, parseISODate, toISODate } from '../utils/nepaliDate';
 
@@ -108,16 +109,25 @@ export default function ExpensesPage() {
     const current = filterBySource(entriesInRange(entries, range), source);
     const previous = filterBySource(entriesInRange(entries, range.previous), source);
     const granularity = granularityFor(range);
-    const series = cumulativeSeries(current, previous, range);
     const summary = summarize(current);
+    const projected = projectTotal(summary.total, range);
+    const series = cumulativeSeries(current, previous, range);
+    // Categories are compared with the previous period at the same point,
+    // like the headline total.
+    const comparable = previousAtSamePoint(previous, range);
+    const { rows, dropped } = compareBreakdown(breakdown(current), breakdown(comparable));
     return {
       current,
       hasPreviousSpending: previous.length > 0,
+      hasComparableSpending: comparable.length > 0,
+      previousFullTotal: summarize(previous).total,
       summary,
+      projected,
       granularity,
       buckets: bucketize(current, range, granularity),
-      breakdown: breakdown(current),
-      series,
+      breakdown: rows,
+      movers: comparable.length ? biggestMovers([...rows, ...dropped]) : [],
+      series: addProjection(series, range, projected),
       comparison: comparePeriods(summary.total, series, range)
     };
   }, [entries, range, source]);
@@ -210,7 +220,16 @@ export default function ExpensesPage() {
                 view={view}
                 range={range}
                 source={source}
+                currentName={currentName}
                 previousName={previousName}
+              />
+            )}
+
+            {view.movers.length > 0 && (
+              <BiggestMovers
+                movers={view.movers}
+                comparedWith={range.inProgress ? `${previousName.toLowerCase()} at this point` : previousName.toLowerCase()}
+                showSource={source === 'all'}
               />
             )}
 
@@ -237,8 +256,13 @@ export default function ExpensesPage() {
                     previousName={previousName}
                     currentTotal={view.summary.total}
                     previousAtSamePoint={view.comparison.previousTotal}
+                    projected={view.projected}
                   />
-                  <BreakdownList rows={view.breakdown} showSourceLegend={source === 'all'} />
+                  <BreakdownList
+                    rows={view.breakdown}
+                    showSourceLegend={source === 'all'}
+                    compareLabel={view.hasComparableSpending ? (range.inProgress ? `${previousName.toLowerCase()} at this point` : previousName.toLowerCase()) : null}
+                  />
                 </div>
                 <Transactions key={`${range.label}-${source}`} entries={view.current} onEdit={expense => setSheet({ expense })} />
               </>
@@ -293,7 +317,7 @@ function DateField({ id, label, value, max, onChange }) {
   );
 }
 
-function SummaryTiles({ view, range, source, previousName }) {
+function SummaryTiles({ view, range, source, currentName, previousName }) {
   const { summary, comparison } = view;
   const change = describeChange(comparison.change);
   const averageDays = Math.max(range.elapsedDays, 1);
@@ -322,6 +346,12 @@ function SummaryTiles({ view, range, source, previousName }) {
             <span className="text-ink-500">No spending in {comparedWith} to compare with</span>
           )}
         </p>
+        {view.projected !== null && (
+          <p className="text-xs text-ink-400 mt-1">
+            On pace for about <span className="text-ink-200 font-medium">{formatRs(Math.round(view.projected))}</span> by the end of {currentName.toLowerCase()}
+            {view.previousFullTotal > 0 && <span className="text-ink-500"> · {previousName} {formatRs(view.previousFullTotal)}</span>}
+          </p>
+        )}
       </div>
 
       <StatTile label="Daily average" value={formatRs(Math.round(summary.total / averageDays))} hint={`over ${averageDays} day${averageDays !== 1 ? 's' : ''}`} />
@@ -349,6 +379,45 @@ function SummaryTiles({ view, range, source, previousName }) {
         />
       )}
     </div>
+  );
+}
+
+// The categories behind the change in the total, largest difference first.
+function BiggestMovers({ movers, comparedWith, showSource }) {
+  return (
+    <section className="card p-4 sm:p-5" aria-labelledby="movers-title">
+      <h2 id="movers-title" className="text-sm font-semibold text-ink-100">What changed</h2>
+      <p className="text-xs text-ink-500 mt-0.5 mb-3">Biggest differences from {comparedWith}</p>
+      <ul className="grid gap-2 sm:grid-cols-3">
+        {movers.map(row => (
+          <li key={row.id} className="rounded-lg bg-ink-800/50 border border-ink-800 px-3 py-2.5 min-w-0">
+            <p className="flex items-center gap-1.5 text-xs text-ink-400 min-w-0">
+              <span aria-hidden>{row.emoji}</span>
+              <span className="truncate">{row.label}</span>
+              {showSource && (
+                <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: SOURCE_COLORS[row.source] }} title={row.source === 'personal' ? 'Personal' : 'In groups'} aria-hidden />
+              )}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-ink-100 flex items-center gap-1.5">
+              <ChangeMark delta={row.delta} />
+              {row.delta > 0 ? '+' : '−'}{formatRs(Math.abs(row.delta))}
+            </p>
+            <p className="text-xs text-ink-500 mt-0.5 tabular-nums">
+              {formatRs(row.previousAmount)} → {formatRs(row.amount)}
+              {row.previousAmount === 0 ? ' · new' : row.amount === 0 ? ' · none now' : ''}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ChangeMark({ delta }) {
+  return (
+    <span className={delta > 0 ? 'text-warning' : 'text-success'} aria-label={delta > 0 ? 'Up' : 'Down'}>
+      {delta > 0 ? '▲' : '▼'}
+    </span>
   );
 }
 

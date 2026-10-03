@@ -6,7 +6,8 @@ const COLLAPSED_ROWS = 6;
 
 // Ranked horizontal bars: spending per category, personal (blue) and in
 // groups (orange). Every value is printed, so this doubles as the table.
-export default function BreakdownList({ rows, showSourceLegend }) {
+// With `compareLabel`, each row also shows its change from that period.
+export default function BreakdownList({ rows, showSourceLegend, compareLabel }) {
   const [expanded, setExpanded] = useState(false);
   const max = rows[0]?.amount || 1;
   const visible = expanded ? rows : rows.slice(0, COLLAPSED_ROWS);
@@ -15,7 +16,9 @@ export default function BreakdownList({ rows, showSourceLegend }) {
     <section className="card p-4 sm:p-5" aria-labelledby="breakdown-title">
       <div className="mb-3">
         <h2 id="breakdown-title" className="text-sm font-semibold text-ink-100">Where it went</h2>
-        <p className="text-xs text-ink-500 mt-0.5">Personal and group spending by category</p>
+        <p className="text-xs text-ink-500 mt-0.5">
+          Personal and group spending by category{compareLabel ? `, with the change from ${compareLabel}` : ''}
+        </p>
       </div>
 
       {showSourceLegend && (
@@ -38,6 +41,7 @@ export default function BreakdownList({ rows, showSourceLegend }) {
                 <span className="text-xs text-ink-500 font-normal ml-1">{Math.round(row.share * 100)}%</span>
               </span>
             </div>
+            {compareLabel && <RowChange row={row} />}
             <div className="h-1.5 rounded-full bg-ink-800 overflow-hidden" aria-hidden>
               <div
                 className="h-full rounded-r"
@@ -54,5 +58,22 @@ export default function BreakdownList({ rows, showSourceLegend }) {
         </button>
       )}
     </section>
+  );
+}
+
+function RowChange({ row }) {
+  if (row.previousAmount === 0) {
+    return <p className="text-[11px] text-ink-500 -mt-0.5 mb-1">New · nothing before</p>;
+  }
+  if (Math.abs(row.delta) < 1) {
+    return <p className="text-[11px] text-ink-500 -mt-0.5 mb-1">● Same as before ({formatRs(row.previousAmount)})</p>;
+  }
+  const up = row.delta > 0;
+  return (
+    <p className="text-[11px] text-ink-400 -mt-0.5 mb-1 tabular-nums">
+      <span className={up ? 'text-warning' : 'text-success'} aria-label={up ? 'Up' : 'Down'}>{up ? '▲' : '▼'}</span>{' '}
+      {formatRs(Math.abs(row.delta))} {up ? 'more' : 'less'}
+      <span className="text-ink-500"> (was {formatRs(row.previousAmount)})</span>
+    </p>
   );
 }
