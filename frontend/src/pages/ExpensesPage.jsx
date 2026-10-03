@@ -5,13 +5,15 @@ import PersonalExpenseSheet from '../components/PersonalExpenseSheet';
 import ServerWakeNotice from '../components/ServerWakeNotice';
 import Toast from '../components/Toast';
 import BreakdownList from '../components/insights/BreakdownList';
+import MonthComparison from '../components/insights/MonthComparison';
 import PaceChart from '../components/insights/PaceChart';
 import SpendingOverTimeChart from '../components/insights/SpendingOverTimeChart';
 import api from '../utils/api';
 import { SOURCE_COLORS, formatRs } from '../utils/expenses';
 import {
-  MAX_CUSTOM_RANGE_DAYS, RANGE_PRESETS, SOURCE_FILTERS, breakdown, bucketize, comparePeriods,
-  cumulativeSeries, entriesInRange, entryCategory, filterBySource, granularityFor, resolveRange, summarize
+  COMPARE_MONTH_CHOICES, MAX_COMPARE_MONTHS, MAX_CUSTOM_RANGE_DAYS, RANGE_PRESETS, SOURCE_FILTERS, addProjection, biggestMovers, breakdown, bucketize,
+  compareBreakdown, comparePeriods, cumulativeSeries, entriesInRange, entryCategory, filterBySource, granularityFor,
+  previousAtSamePoint, projectTotal, recentMonths, resolveRange, summarize
 } from '../utils/insights';
 import { addDays, daysBetween, formatBS, parseISODate, toISODate } from '../utils/nepaliDate';
 
@@ -36,17 +38,32 @@ const useInsightFilters = () => {
   const source = SOURCE_FILTERS.some(s => s.key === params.get('source')) ? params.get('source') : 'all';
   const from = ISO_DAY.test(params.get('from') || '') ? params.get('from') : toISODate(addDays(new Date(), -29));
   const to = ISO_DAY.test(params.get('to') || '') ? params.get('to') : today;
+  const view = params.get('view') === 'compare' ? 'compare' : 'overview';
+  // Recomputed when the day changes, so a new month shows up.
+  const monthChoices = useMemo(() => recentMonths(COMPARE_MONTH_CHOICES, parseISODate(today)), [today]);
+  const months = useMemo(() => {
+    const valid = (params.get('months') || '').split(',').filter(key => monthChoices.some(m => m.key === key));
+    const unique = [...new Set(valid)].slice(0, MAX_COMPARE_MONTHS);
+    // Default: this month next to last month.
+    return params.has('months') ? unique : monthChoices.slice(0, 2).map(m => m.key);
+  }, [params, monthChoices]);
 
   const update = (changes) => {
-    const next = { range: preset, source, ...(preset === 'custom' ? { from, to } : {}), ...changes };
+    const next = {
+      range: preset, source, view, ...(preset === 'custom' ? { from, to } : {}),
+      ...(params.has('months') ? { months: months.join(',') } : {}),
+      ...changes
+    };
+    if (Array.isArray(next.months)) next.months = next.months.join(',');
     if (next.range !== 'custom') { delete next.from; delete next.to; }
     if (next.range === 'custom') { next.from ??= from; next.to ??= to; }
     if (next.range === 'thisMonth') delete next.range;
     if (next.source === 'all') delete next.source;
+    if (next.view === 'overview') delete next.view;
     setParams(next, { replace: true });
   };
 
-  return { preset, source, from, to, today, update };
+  return { preset, source, from, to, today, view, months, monthChoices, update };
 };
 
 const describeChange = (change) => {
@@ -58,7 +75,8 @@ const describeChange = (change) => {
 };
 
 export default function ExpensesPage() {
-  const { preset, source, from, to, today, update } = useInsightFilters();
+  const { preset, source, from, to, today, view: mode, months, monthChoices, update } = useInsightFilters();
+  const isCompare = mode === 'compare';
 
   const customError = useMemo(() => {
     if (preset !== 'custom') return '';
@@ -85,7 +103,7 @@ export default function ExpensesPage() {
   const fetchTo = range ? toISODate(range.end) : null;
 
   const load = useCallback(async () => {
-    if (!fetchFrom || !fetchTo) return;
+    if (isCompare || !fetchFrom || !fetchTo) return;
     const requestId = ++requestRef.current;
     setRefreshing(true);
     try {
@@ -99,34 +117,48 @@ export default function ExpensesPage() {
     } finally {
       if (requestId === requestRef.current) setRefreshing(false);
     }
-  }, [fetchFrom, fetchTo]);
+  }, [fetchFrom, fetchTo, isCompare]);
 
   useEffect(() => { load(); }, [load]);
+
+  const showError = useCallback((message) => setToast({ id: Date.now(), message }), []);
 
   const view = useMemo(() => {
     if (!range || !entries) return null;
     const current = filterBySource(entriesInRange(entries, range), source);
     const previous = filterBySource(entriesInRange(entries, range.previous), source);
     const granularity = granularityFor(range);
-    const series = cumulativeSeries(current, previous, range);
     const summary = summarize(current);
+    const projected = projectTotal(summary.total, range);
+    const series = cumulativeSeries(current, previous, range);
+    // Categories are compared with the previous period at the same point,
+    // like the headline total.
+    const comparable = previousAtSamePoint(previous, range);
+    const { rows, dropped } = compareBreakdown(breakdown(current), breakdown(comparable));
     return {
       current,
       hasPreviousSpending: previous.length > 0,
+      hasComparableSpending: comparable.length > 0,
+      previousFullTotal: summarize(previous).total,
       summary,
+      projected,
       granularity,
       buckets: bucketize(current, range, granularity),
-      breakdown: breakdown(current),
-      series,
+      breakdown: rows,
+      movers: comparable.length ? biggestMovers([...rows, ...dropped]) : [],
+      series: addProjection(series, range, projected),
       comparison: comparePeriods(summary.total, series, range)
     };
   }, [entries, range, source]);
 
   const [currentName, previousName] = PERIOD_NAMES[preset];
 
+  // Bumped after a save so the month comparison refetches too.
+  const [dataVersion, setDataVersion] = useState(0);
   const handleSheetDone = (message) => {
     setSheet(null);
     setToast({ id: Date.now(), message });
+    setDataVersion(v => v + 1);
     load();
   };
 
@@ -148,13 +180,30 @@ export default function ExpensesPage() {
           </button>
         </div>
 
+        <div className="flex p-1 bg-ink-900 border border-ink-800 rounded-xl" role="group" aria-label="View">
+          {[['overview', 'Overview'], ['compare', 'Compare months']].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => update({ view: key })}
+              aria-pressed={mode === key}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors touch-manipulation ${
+                mode === key ? 'bg-ink-800 text-ink-100 shadow-sm' : 'text-ink-500 hover:text-ink-300'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* Filters: one row that scopes everything below */}
         <div className="space-y-2.5">
-          <div className="flex gap-1.5 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-0.5" role="group" aria-label="Time range">
-            {RANGE_PRESETS.map(p => (
-              <FilterChip key={p.key} selected={preset === p.key} onClick={() => update({ range: p.key })}>{p.label}</FilterChip>
-            ))}
-          </div>
+          {!isCompare && (
+            <div className="flex gap-1.5 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-0.5" role="group" aria-label="Time range">
+              {RANGE_PRESETS.map(p => (
+                <FilterChip key={p.key} selected={preset === p.key} onClick={() => update({ range: p.key })}>{p.label}</FilterChip>
+              ))}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex p-0.5 bg-ink-900 border border-ink-800 rounded-lg" role="group" aria-label="Expense source">
@@ -171,14 +220,14 @@ export default function ExpensesPage() {
                 </button>
               ))}
             </div>
-            {range && (
+            {range && !isCompare && (
               <p className="text-xs text-ink-400" aria-live="polite">
                 {range.label}
               </p>
             )}
           </div>
 
-          {preset === 'custom' && (
+          {preset === 'custom' && !isCompare && (
             <div className="card p-3 sm:p-4">
               <div className="grid grid-cols-2 gap-3">
                 <DateField id="range-from" label="From" value={from} max={today} onChange={value => update({ from: value })} />
@@ -190,7 +239,17 @@ export default function ExpensesPage() {
         </div>
 
         {/* Content */}
-        {!range ? (
+        {isCompare ? (
+          <MonthComparison
+            key={`compare-${today}`}
+            choices={monthChoices}
+            selected={months}
+            onChange={keys => update({ months: keys })}
+            source={source}
+            dataVersion={dataVersion}
+            onError={showError}
+          />
+        ) : !range ? (
           !customError && <p className="text-sm text-ink-500">These dates are outside the supported Nepali calendar range.</p>
         ) : status === 'loading' && !view ? (
           <div className="flex flex-col items-center py-16">
@@ -210,7 +269,16 @@ export default function ExpensesPage() {
                 view={view}
                 range={range}
                 source={source}
+                currentName={currentName}
                 previousName={previousName}
+              />
+            )}
+
+            {view.movers.length > 0 && (
+              <BiggestMovers
+                movers={view.movers}
+                comparedWith={range.inProgress ? `${previousName.toLowerCase()} at this point` : previousName.toLowerCase()}
+                showSource={source === 'all'}
               />
             )}
 
@@ -237,8 +305,13 @@ export default function ExpensesPage() {
                     previousName={previousName}
                     currentTotal={view.summary.total}
                     previousAtSamePoint={view.comparison.previousTotal}
+                    projected={view.projected}
                   />
-                  <BreakdownList rows={view.breakdown} showSourceLegend={source === 'all'} />
+                  <BreakdownList
+                    rows={view.breakdown}
+                    showSourceLegend={source === 'all'}
+                    compareLabel={view.hasComparableSpending ? (range.inProgress ? `${previousName.toLowerCase()} at this point` : previousName.toLowerCase()) : null}
+                  />
                 </div>
                 <Transactions key={`${range.label}-${source}`} entries={view.current} onEdit={expense => setSheet({ expense })} />
               </>
@@ -251,7 +324,7 @@ export default function ExpensesPage() {
         <PersonalExpenseSheet
           expense={sheet.expense}
           onClose={() => setSheet(null)}
-          onSaved={(_, { isEdit }) => handleSheetDone(isEdit ? 'Expense updated' : 'Expense added')}
+          onSaved={(saved, { isEdit }) => handleSheetDone(isEdit ? 'Expense updated' : saved.length > 1 ? `${saved.length} expenses added` : 'Expense added')}
           onDeleted={() => handleSheetDone('Expense deleted')}
         />
       )}
@@ -293,7 +366,7 @@ function DateField({ id, label, value, max, onChange }) {
   );
 }
 
-function SummaryTiles({ view, range, source, previousName }) {
+function SummaryTiles({ view, range, source, currentName, previousName }) {
   const { summary, comparison } = view;
   const change = describeChange(comparison.change);
   const averageDays = Math.max(range.elapsedDays, 1);
@@ -322,6 +395,12 @@ function SummaryTiles({ view, range, source, previousName }) {
             <span className="text-ink-500">No spending in {comparedWith} to compare with</span>
           )}
         </p>
+        {view.projected !== null && (
+          <p className="text-xs text-ink-400 mt-1">
+            On pace for about <span className="text-ink-200 font-medium">{formatRs(Math.round(view.projected))}</span> by the end of {currentName.toLowerCase()}
+            {view.previousFullTotal > 0 && <span className="text-ink-500"> · {previousName} {formatRs(view.previousFullTotal)}</span>}
+          </p>
+        )}
       </div>
 
       <StatTile label="Daily average" value={formatRs(Math.round(summary.total / averageDays))} hint={`over ${averageDays} day${averageDays !== 1 ? 's' : ''}`} />
@@ -349,6 +428,45 @@ function SummaryTiles({ view, range, source, previousName }) {
         />
       )}
     </div>
+  );
+}
+
+// The categories behind the change in the total, largest difference first.
+function BiggestMovers({ movers, comparedWith, showSource }) {
+  return (
+    <section className="card p-4 sm:p-5" aria-labelledby="movers-title">
+      <h2 id="movers-title" className="text-sm font-semibold text-ink-100">What changed</h2>
+      <p className="text-xs text-ink-500 mt-0.5 mb-3">Biggest differences from {comparedWith}</p>
+      <ul className="grid gap-2 sm:grid-cols-3">
+        {movers.map(row => (
+          <li key={row.id} className="rounded-lg bg-ink-800/50 border border-ink-800 px-3 py-2.5 min-w-0">
+            <p className="flex items-center gap-1.5 text-xs text-ink-400 min-w-0">
+              <span aria-hidden>{row.emoji}</span>
+              <span className="truncate">{row.label}</span>
+              {showSource && (
+                <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: SOURCE_COLORS[row.source] }} title={row.source === 'personal' ? 'Personal' : 'In groups'} aria-hidden />
+              )}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-ink-100 flex items-center gap-1.5">
+              <ChangeMark delta={row.delta} />
+              {row.delta > 0 ? '+' : '−'}{formatRs(Math.abs(row.delta))}
+            </p>
+            <p className="text-xs text-ink-500 mt-0.5 tabular-nums">
+              {formatRs(row.previousAmount)} → {formatRs(row.amount)}
+              {row.previousAmount === 0 ? ' · new' : row.amount === 0 ? ' · none now' : ''}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ChangeMark({ delta }) {
+  return (
+    <span className={delta > 0 ? 'text-warning' : 'text-success'} aria-label={delta > 0 ? 'Up' : 'Down'}>
+      {delta > 0 ? '▲' : '▼'}
+    </span>
   );
 }
 

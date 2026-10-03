@@ -24,11 +24,15 @@ export default function ChartTooltip({ title, rows, footer }) {
 export function LegendItem({ color, label, shape = 'rect', value }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-ink-400">
-      <span
-        className={shape === 'line' ? 'w-3 h-0.5 rounded-full' : 'w-2.5 h-2.5 rounded-sm'}
-        style={{ backgroundColor: color }}
-        aria-hidden
-      />
+      {shape === 'dash' ? (
+        <span className="w-3 h-0.5 shrink-0" style={{ backgroundImage: `linear-gradient(to right, ${color} 50%, transparent 50%)`, backgroundSize: '6px 2px' }} aria-hidden />
+      ) : (
+        <span
+          className={shape === 'line' ? 'w-3 h-0.5 rounded-full' : 'w-2.5 h-2.5 rounded-sm'}
+          style={{ backgroundColor: color }}
+          aria-hidden
+        />
+      )}
       {label}
       {value !== undefined && <span className="text-ink-200 font-medium">{value}</span>}
     </span>

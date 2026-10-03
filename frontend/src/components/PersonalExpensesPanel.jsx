@@ -93,23 +93,29 @@ const PersonalExpensesPanel = forwardRef(function PersonalExpensesPanel(_, ref) 
 
   const showToast = (next) => setToast({ id: Date.now(), ...next });
 
-  const handleSaved = (saved, { isEdit }) => {
+  // `savedList` holds one edited expense, or the expenses just added (all on
+  // the same date).
+  const handleSaved = (savedList, { isEdit }) => {
     setSheet(null);
-    const previous = expenses.find(e => e._id === saved._id);
+    const ids = new Set(savedList.map(e => e._id));
+    const previous = expenses.filter(e => ids.has(e._id));
+    const previousAmount = previous.reduce((t, e) => t + e.amount, 0);
+    const savedAmount = savedList.reduce((t, e) => t + e.amount, 0);
+    const count = savedList.length;
 
-    if (inShownMonth(saved)) {
-      setExpenses(list => [...list.filter(e => e._id !== saved._id), saved].sort(byNewest));
-      setTotal(t => t + (previous ? 0 : 1));
-      setTotalAmount(a => a - (previous?.amount || 0) + saved.amount);
-      showToast({ message: isEdit ? 'Expense updated' : 'Expense added' });
+    if (inShownMonth(savedList[0])) {
+      setExpenses(list => [...list.filter(e => !ids.has(e._id)), ...savedList].sort(byNewest));
+      setTotal(t => t + count - previous.length);
+      setTotalAmount(a => a - previousAmount + savedAmount);
+      showToast({ message: isEdit ? 'Expense updated' : count > 1 ? `${count} expenses added` : 'Expense added' });
     } else {
       // Saved to a different month: drop it from this view and offer to go there.
-      if (previous) {
-        setExpenses(list => list.filter(e => e._id !== saved._id));
-        setTotal(t => t - 1);
-        setTotalAmount(a => a - previous.amount);
+      if (previous.length) {
+        setExpenses(list => list.filter(e => !ids.has(e._id)));
+        setTotal(t => t - previous.length);
+        setTotalAmount(a => a - previousAmount);
       }
-      const bs = toBS(saved.date);
+      const bs = toBS(savedList[0].date);
       showToast({
         message: bs ? `Saved to ${bs.monthName} ${bs.year}` : 'Expense saved',
         actionLabel: bs ? 'View' : undefined,

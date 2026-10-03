@@ -9,6 +9,7 @@ const router = express.Router();
 const MAX_AMOUNT = 10000000;
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
+const MAX_BULK_ITEMS = 30;
 
 // Validates a create/update body. Returns { data } or { error }.
 const validateExpense = (body = {}) => {
@@ -104,6 +105,35 @@ router.post('/', protect, async (req, res) => {
 
     const expense = await PersonalExpense.create({ ...data, user: req.user._id });
     res.status(201).json({ success: true, expense });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route  POST /api/personal-expenses/bulk
+// @desc   Add several personal expenses on one date. All or nothing: any
+//         invalid item rejects the whole request.
+router.post('/bulk', protect, async (req, res) => {
+  try {
+    const { items, date } = req.body || {};
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: 'Add at least one item' });
+    }
+    if (items.length > MAX_BULK_ITEMS) {
+      return res.status(400).json({ success: false, message: `You can add up to ${MAX_BULK_ITEMS} items at once` });
+    }
+
+    const docs = [];
+    for (const [index, item] of items.entries()) {
+      const { data, error } = validateExpense({ ...item, date });
+      if (error) {
+        return res.status(400).json({ success: false, message: items.length > 1 ? `Item ${index + 1}: ${error}` : error });
+      }
+      docs.push({ ...data, user: req.user._id });
+    }
+
+    const expenses = await PersonalExpense.insertMany(docs);
+    res.status(201).json({ success: true, expenses });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

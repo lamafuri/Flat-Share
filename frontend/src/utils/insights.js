@@ -4,7 +4,7 @@
 import { getCategory } from './expenses';
 import { GROUP_ITEMS, findItem, getGroupCategory } from './catalog';
 import {
-  BS_MONTHS_SHORT, addDays, bsMonthRange, daysBetween, formatBS, fromBS, shiftBSMonth,
+  BS_MONTHS, BS_MONTHS_SHORT, addDays, bsMonthRange, daysBetween, formatBS, fromBS, shiftBSMonth,
   startOfDay, toBS
 } from './nepaliDate';
 
@@ -277,4 +277,153 @@ export const comparePeriods = (currentTotal, series, range) => {
   }
   if (!previousTotal) return { previousTotal, change: null };
   return { previousTotal, change: (currentTotal - previousTotal) / previousTotal };
+};
+
+// Previous-period entries up to the same day number as the current period, so
+// a period still running is compared like for like (as comparePeriods does).
+export const previousAtSamePoint = (previousEntries, range) => {
+  if (!range.inProgress) return previousEntries;
+  const cutoff = addDays(range.previous.start, range.elapsedDays - 1);
+  return previousEntries.filter(entry => startOfDay(entry.date) <= cutoff);
+};
+
+// Adds `previousAmount` and `delta` to each breakdown row. Categories with
+// spending only in the previous period come back separately as `dropped`.
+export const compareBreakdown = (currentRows, previousRows) => {
+  const previousById = new Map(previousRows.map(row => [row.id, row]));
+  const rows = currentRows.map(row => {
+    const previousAmount = previousById.get(row.id)?.amount ?? 0;
+    return { ...row, previousAmount, delta: row.amount - previousAmount };
+  });
+  const currentIds = new Set(currentRows.map(row => row.id));
+  const dropped = previousRows
+    .filter(row => !currentIds.has(row.id))
+    .map(row => ({ ...row, amount: 0, share: 0, count: 0, previousAmount: row.amount, delta: -row.amount }));
+  return { rows, dropped };
+};
+
+// The categories whose spending changed most in rupees, either way.
+export const biggestMovers = (rows, limit = 3) =>
+  rows
+    .filter(row => Math.abs(row.delta) >= 1)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+    .slice(0, limit);
+
+// Too few days make a straight-line estimate swing wildly.
+const MIN_PROJECTION_DAYS = 3;
+
+// End-of-period estimate at the daily average so far; null when the period
+// is over or has only just started.
+export const projectTotal = (total, range) => {
+  if (!range.inProgress || range.elapsedDays < MIN_PROJECTION_DAYS) return null;
+  return (total / range.elapsedDays) * range.totalDays;
+};
+
+// Extends the pace series with a straight `projected` line from today to the
+// end of the current period.
+export const addProjection = (points, range, projected) => {
+  if (projected === null) return points;
+  const last = range.elapsedDays - 1;
+  const base = points[last]?.current ?? 0;
+  const rate = (projected - base) / Math.max(range.totalDays - 1 - last, 1);
+  return points.map((point, i) => ({
+    ...point,
+    projected: i >= last && i < range.totalDays ? base + rate * (i - last) : null
+  }));
+};
+
+// ── Month comparison ────────────────────────────────────────────────────────
+
+export const MAX_COMPARE_MONTHS = 6;
+export const COMPARE_MONTH_CHOICES = 12;
+
+// "2083-05" for Bhadra 2083.
+export const monthKey = ({ year, monthIndex }) => `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+
+export const parseMonthKey = (key) => {
+  const match = /^(\d{4})-(\d{2})$/.exec(key || '');
+  if (!match) return null;
+  const monthIndex = Number(match[2]) - 1;
+  return monthIndex >= 0 && monthIndex < 12 ? { year: Number(match[1]), monthIndex } : null;
+};
+
+// The latest `count` BS months up to the current one, newest first.
+export const recentMonths = (count = COMPARE_MONTH_CHOICES, today = new Date()) => {
+  const bs = toBS(today);
+  if (!bs) return [];
+  const months = [];
+  for (let i = 0; i < count; i++) {
+    const month = shiftBSMonth({ year: bs.year, monthIndex: bs.monthIndex }, -i);
+    if (!bsMonthRange(month)) break;
+    months.push({
+      ...month,
+      key: monthKey(month),
+      name: BS_MONTHS[month.monthIndex],
+      short: `${BS_MONTHS_SHORT[month.monthIndex]} ${String(month.year).slice(-2)}`
+    });
+  }
+  return months;
+};
+
+// Side-by-side figures for each month (pass them oldest first). Each month's
+// `change` compares it with the month before it in the list; a month still
+// running is compared with the same number of days of that month.
+export const compareMonths = (entries, months, source, today = new Date()) => {
+  const todayDay = startOfDay(today);
+  const columns = months.map(month => {
+    const span = bsMonthRange(month);
+    const list = filterBySource(entriesInRange(entries, span), source);
+    const totalDays = daysBetween(span.start, span.end) + 1;
+    const inProgress = todayDay >= span.start && todayDay <= span.end;
+    const elapsedDays = inProgress ? daysBetween(span.start, todayDay) + 1 : totalDays;
+    const summary = summarize(list);
+    return {
+      ...month,
+      span,
+      entries: list,
+      summary,
+      inProgress,
+      elapsedDays,
+      totalDays,
+      dailyAverage: summary.total / Math.max(elapsedDays, 1),
+      projected: inProgress && elapsedDays >= MIN_PROJECTION_DAYS ? (summary.total / elapsedDays) * totalDays : null,
+      rows: breakdown(list)
+    };
+  });
+
+  columns.forEach((column, i) => {
+    const before = columns[i - 1];
+    if (!before) { column.change = null; return; }
+    let baseline = before.summary.total;
+    let partial = false;
+    if (column.inProgress) {
+      const cutoff = addDays(before.span.start, column.elapsedDays - 1);
+      baseline = sum(before.entries.filter(entry => startOfDay(entry.date) <= cutoff));
+      partial = column.elapsedDays < before.totalDays;
+    }
+    column.change = {
+      against: before,
+      baseline,
+      partial,
+      ratio: baseline ? (column.summary.total - baseline) / baseline : null
+    };
+  });
+
+  // One row per category (and source) seen in any month, largest overall first.
+  const categoryRows = new Map();
+  columns.forEach((column, i) => {
+    for (const row of column.rows) {
+      if (!categoryRows.has(row.id)) {
+        categoryRows.set(row.id, { id: row.id, source: row.source, label: row.label, emoji: row.emoji, amounts: months.map(() => 0), total: 0 });
+      }
+      const target = categoryRows.get(row.id);
+      target.amounts[i] = row.amount;
+      target.total += row.amount;
+    }
+  });
+
+  return {
+    columns,
+    categories: [...categoryRows.values()].sort((a, b) => b.total - a.total)
+  };
 };
