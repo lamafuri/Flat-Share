@@ -681,6 +681,36 @@ Add a personal expense.
 
 ---
 
+### POST `/personal-expenses/bulk`
+Add several personal expenses on the same date in one request. All or nothing: if any item is invalid, none are saved.
+
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "date": "2026-09-15",
+  "items": [
+    { "title": "Momo", "amount": 150, "category": "food" },
+    { "title": "Tempo", "amount": 30, "category": "transport", "note": "to college" }
+  ]
+}
+```
+> 1–30 items. Each item takes the same fields and validation as `POST /personal-expenses`; `date` applies to every item.
+
+**Response `201`:**
+```json
+{
+  "success": true,
+  "expenses": [ { "_id": "...", "title": "Momo", "amount": 150, "category": "food", "date": "2026-09-15T12:00:00.000Z", "note": "" } ]
+}
+```
+
+**Error Responses:**
+- `400` — No items, more than 30 items, or a validation error (prefixed with the item number, e.g. `Item 2: Amount must be a number greater than 0`)
+
+---
+
 ### PUT `/personal-expenses/:id`
 Replace a personal expense. Takes the same body and validation as `POST`.
 
