@@ -4,7 +4,7 @@
 import { getCategory } from './expenses';
 import { GROUP_ITEMS, findItem, getGroupCategory } from './catalog';
 import {
-  BS_MONTHS_SHORT, addDays, bsMonthRange, daysBetween, formatBS, fromBS, shiftBSMonth,
+  BS_MONTHS, BS_MONTHS_SHORT, addDays, bsMonthRange, daysBetween, formatBS, fromBS, shiftBSMonth,
   startOfDay, toBS
 } from './nepaliDate';
 
@@ -330,4 +330,100 @@ export const addProjection = (points, range, projected) => {
     ...point,
     projected: i >= last && i < range.totalDays ? base + rate * (i - last) : null
   }));
+};
+
+// ── Month comparison ────────────────────────────────────────────────────────
+
+export const MAX_COMPARE_MONTHS = 6;
+export const COMPARE_MONTH_CHOICES = 12;
+
+// "2083-05" for Bhadra 2083.
+export const monthKey = ({ year, monthIndex }) => `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+
+export const parseMonthKey = (key) => {
+  const match = /^(\d{4})-(\d{2})$/.exec(key || '');
+  if (!match) return null;
+  const monthIndex = Number(match[2]) - 1;
+  return monthIndex >= 0 && monthIndex < 12 ? { year: Number(match[1]), monthIndex } : null;
+};
+
+// The latest `count` BS months up to the current one, newest first.
+export const recentMonths = (count = COMPARE_MONTH_CHOICES, today = new Date()) => {
+  const bs = toBS(today);
+  if (!bs) return [];
+  const months = [];
+  for (let i = 0; i < count; i++) {
+    const month = shiftBSMonth({ year: bs.year, monthIndex: bs.monthIndex }, -i);
+    if (!bsMonthRange(month)) break;
+    months.push({
+      ...month,
+      key: monthKey(month),
+      name: BS_MONTHS[month.monthIndex],
+      short: `${BS_MONTHS_SHORT[month.monthIndex]} ${String(month.year).slice(-2)}`
+    });
+  }
+  return months;
+};
+
+// Side-by-side figures for each month (pass them oldest first). Each month's
+// `change` compares it with the month before it in the list; a month still
+// running is compared with the same number of days of that month.
+export const compareMonths = (entries, months, source, today = new Date()) => {
+  const todayDay = startOfDay(today);
+  const columns = months.map(month => {
+    const span = bsMonthRange(month);
+    const list = filterBySource(entriesInRange(entries, span), source);
+    const totalDays = daysBetween(span.start, span.end) + 1;
+    const inProgress = todayDay >= span.start && todayDay <= span.end;
+    const elapsedDays = inProgress ? daysBetween(span.start, todayDay) + 1 : totalDays;
+    const summary = summarize(list);
+    return {
+      ...month,
+      span,
+      entries: list,
+      summary,
+      inProgress,
+      elapsedDays,
+      totalDays,
+      dailyAverage: summary.total / Math.max(elapsedDays, 1),
+      projected: inProgress && elapsedDays >= MIN_PROJECTION_DAYS ? (summary.total / elapsedDays) * totalDays : null,
+      rows: breakdown(list)
+    };
+  });
+
+  columns.forEach((column, i) => {
+    const before = columns[i - 1];
+    if (!before) { column.change = null; return; }
+    let baseline = before.summary.total;
+    let partial = false;
+    if (column.inProgress) {
+      const cutoff = addDays(before.span.start, column.elapsedDays - 1);
+      baseline = sum(before.entries.filter(entry => startOfDay(entry.date) <= cutoff));
+      partial = column.elapsedDays < before.totalDays;
+    }
+    column.change = {
+      against: before,
+      baseline,
+      partial,
+      ratio: baseline ? (column.summary.total - baseline) / baseline : null
+    };
+  });
+
+  // One row per category (and source) seen in any month, largest overall first.
+  const categoryRows = new Map();
+  columns.forEach((column, i) => {
+    for (const row of column.rows) {
+      if (!categoryRows.has(row.id)) {
+        categoryRows.set(row.id, { id: row.id, source: row.source, label: row.label, emoji: row.emoji, amounts: months.map(() => 0), total: 0 });
+      }
+      const target = categoryRows.get(row.id);
+      target.amounts[i] = row.amount;
+      target.total += row.amount;
+    }
+  });
+
+  return {
+    columns,
+    categories: [...categoryRows.values()].sort((a, b) => b.total - a.total)
+  };
 };

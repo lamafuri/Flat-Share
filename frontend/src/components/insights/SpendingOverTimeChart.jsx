@@ -10,7 +10,7 @@ const RADIUS = 4;
 
 // A stacked segment with a rounded data end on top and a surface-colored gap
 // below the segment stacked above it.
-function StackSegment({ x, y, width, height, fill, isTop }) {
+export function StackSegment({ x, y, width, height, fill, isTop }) {
   if (!(height > 0) || !(width > 0)) return null;
   const gap = isTop ? 0 : GAP;
   const h = height - gap;
@@ -134,7 +134,7 @@ export default function SpendingOverTimeChart({ buckets, source, granularity }) 
   );
 }
 
-function ViewToggle({ view, onChange }) {
+export function ViewToggle({ view, onChange }) {
   return (
     <div className="flex p-0.5 bg-ink-800 rounded-lg shrink-0" role="group" aria-label="Display as">
       {['chart', 'table'].map(option => (

@@ -5,14 +5,15 @@ import PersonalExpenseSheet from '../components/PersonalExpenseSheet';
 import ServerWakeNotice from '../components/ServerWakeNotice';
 import Toast from '../components/Toast';
 import BreakdownList from '../components/insights/BreakdownList';
+import MonthComparison from '../components/insights/MonthComparison';
 import PaceChart from '../components/insights/PaceChart';
 import SpendingOverTimeChart from '../components/insights/SpendingOverTimeChart';
 import api from '../utils/api';
 import { SOURCE_COLORS, formatRs } from '../utils/expenses';
 import {
-  MAX_CUSTOM_RANGE_DAYS, RANGE_PRESETS, SOURCE_FILTERS, addProjection, biggestMovers, breakdown, bucketize,
+  COMPARE_MONTH_CHOICES, MAX_COMPARE_MONTHS, MAX_CUSTOM_RANGE_DAYS, RANGE_PRESETS, SOURCE_FILTERS, addProjection, biggestMovers, breakdown, bucketize,
   compareBreakdown, comparePeriods, cumulativeSeries, entriesInRange, entryCategory, filterBySource, granularityFor,
-  previousAtSamePoint, projectTotal, resolveRange, summarize
+  previousAtSamePoint, projectTotal, recentMonths, resolveRange, summarize
 } from '../utils/insights';
 import { addDays, daysBetween, formatBS, parseISODate, toISODate } from '../utils/nepaliDate';
 
@@ -37,17 +38,32 @@ const useInsightFilters = () => {
   const source = SOURCE_FILTERS.some(s => s.key === params.get('source')) ? params.get('source') : 'all';
   const from = ISO_DAY.test(params.get('from') || '') ? params.get('from') : toISODate(addDays(new Date(), -29));
   const to = ISO_DAY.test(params.get('to') || '') ? params.get('to') : today;
+  const view = params.get('view') === 'compare' ? 'compare' : 'overview';
+  // Recomputed when the day changes, so a new month shows up.
+  const monthChoices = useMemo(() => recentMonths(COMPARE_MONTH_CHOICES, parseISODate(today)), [today]);
+  const months = useMemo(() => {
+    const valid = (params.get('months') || '').split(',').filter(key => monthChoices.some(m => m.key === key));
+    const unique = [...new Set(valid)].slice(0, MAX_COMPARE_MONTHS);
+    // Default: this month next to last month.
+    return params.has('months') ? unique : monthChoices.slice(0, 2).map(m => m.key);
+  }, [params, monthChoices]);
 
   const update = (changes) => {
-    const next = { range: preset, source, ...(preset === 'custom' ? { from, to } : {}), ...changes };
+    const next = {
+      range: preset, source, view, ...(preset === 'custom' ? { from, to } : {}),
+      ...(params.has('months') ? { months: months.join(',') } : {}),
+      ...changes
+    };
+    if (Array.isArray(next.months)) next.months = next.months.join(',');
     if (next.range !== 'custom') { delete next.from; delete next.to; }
     if (next.range === 'custom') { next.from ??= from; next.to ??= to; }
     if (next.range === 'thisMonth') delete next.range;
     if (next.source === 'all') delete next.source;
+    if (next.view === 'overview') delete next.view;
     setParams(next, { replace: true });
   };
 
-  return { preset, source, from, to, today, update };
+  return { preset, source, from, to, today, view, months, monthChoices, update };
 };
 
 const describeChange = (change) => {
@@ -59,7 +75,8 @@ const describeChange = (change) => {
 };
 
 export default function ExpensesPage() {
-  const { preset, source, from, to, today, update } = useInsightFilters();
+  const { preset, source, from, to, today, view: mode, months, monthChoices, update } = useInsightFilters();
+  const isCompare = mode === 'compare';
 
   const customError = useMemo(() => {
     if (preset !== 'custom') return '';
@@ -86,7 +103,7 @@ export default function ExpensesPage() {
   const fetchTo = range ? toISODate(range.end) : null;
 
   const load = useCallback(async () => {
-    if (!fetchFrom || !fetchTo) return;
+    if (isCompare || !fetchFrom || !fetchTo) return;
     const requestId = ++requestRef.current;
     setRefreshing(true);
     try {
@@ -100,9 +117,11 @@ export default function ExpensesPage() {
     } finally {
       if (requestId === requestRef.current) setRefreshing(false);
     }
-  }, [fetchFrom, fetchTo]);
+  }, [fetchFrom, fetchTo, isCompare]);
 
   useEffect(() => { load(); }, [load]);
+
+  const showError = useCallback((message) => setToast({ id: Date.now(), message }), []);
 
   const view = useMemo(() => {
     if (!range || !entries) return null;
@@ -134,9 +153,12 @@ export default function ExpensesPage() {
 
   const [currentName, previousName] = PERIOD_NAMES[preset];
 
+  // Bumped after a save so the month comparison refetches too.
+  const [dataVersion, setDataVersion] = useState(0);
   const handleSheetDone = (message) => {
     setSheet(null);
     setToast({ id: Date.now(), message });
+    setDataVersion(v => v + 1);
     load();
   };
 
@@ -158,13 +180,30 @@ export default function ExpensesPage() {
           </button>
         </div>
 
+        <div className="flex p-1 bg-ink-900 border border-ink-800 rounded-xl" role="group" aria-label="View">
+          {[['overview', 'Overview'], ['compare', 'Compare months']].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => update({ view: key })}
+              aria-pressed={mode === key}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors touch-manipulation ${
+                mode === key ? 'bg-ink-800 text-ink-100 shadow-sm' : 'text-ink-500 hover:text-ink-300'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* Filters: one row that scopes everything below */}
         <div className="space-y-2.5">
-          <div className="flex gap-1.5 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-0.5" role="group" aria-label="Time range">
-            {RANGE_PRESETS.map(p => (
-              <FilterChip key={p.key} selected={preset === p.key} onClick={() => update({ range: p.key })}>{p.label}</FilterChip>
-            ))}
-          </div>
+          {!isCompare && (
+            <div className="flex gap-1.5 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-0.5" role="group" aria-label="Time range">
+              {RANGE_PRESETS.map(p => (
+                <FilterChip key={p.key} selected={preset === p.key} onClick={() => update({ range: p.key })}>{p.label}</FilterChip>
+              ))}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex p-0.5 bg-ink-900 border border-ink-800 rounded-lg" role="group" aria-label="Expense source">
@@ -181,14 +220,14 @@ export default function ExpensesPage() {
                 </button>
               ))}
             </div>
-            {range && (
+            {range && !isCompare && (
               <p className="text-xs text-ink-400" aria-live="polite">
                 {range.label}
               </p>
             )}
           </div>
 
-          {preset === 'custom' && (
+          {preset === 'custom' && !isCompare && (
             <div className="card p-3 sm:p-4">
               <div className="grid grid-cols-2 gap-3">
                 <DateField id="range-from" label="From" value={from} max={today} onChange={value => update({ from: value })} />
@@ -200,7 +239,17 @@ export default function ExpensesPage() {
         </div>
 
         {/* Content */}
-        {!range ? (
+        {isCompare ? (
+          <MonthComparison
+            key={`compare-${today}`}
+            choices={monthChoices}
+            selected={months}
+            onChange={keys => update({ months: keys })}
+            source={source}
+            dataVersion={dataVersion}
+            onError={showError}
+          />
+        ) : !range ? (
           !customError && <p className="text-sm text-ink-500">These dates are outside the supported Nepali calendar range.</p>
         ) : status === 'loading' && !view ? (
           <div className="flex flex-col items-center py-16">
