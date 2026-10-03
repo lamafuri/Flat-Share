@@ -251,7 +251,7 @@ export default function ExpensesPage() {
         <PersonalExpenseSheet
           expense={sheet.expense}
           onClose={() => setSheet(null)}
-          onSaved={(_, { isEdit }) => handleSheetDone(isEdit ? 'Expense updated' : 'Expense added')}
+          onSaved={(saved, { isEdit }) => handleSheetDone(isEdit ? 'Expense updated' : saved.length > 1 ? `${saved.length} expenses added` : 'Expense added')}
           onDeleted={() => handleSheetDone('Expense deleted')}
         />
       )}
