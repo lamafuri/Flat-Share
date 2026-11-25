@@ -51,21 +51,31 @@ spec:
           volumeMounts:
             - name: mongo-data
               mountPath: /data/db
+          # First start runs the init script (creates the app user) on a
+          # temporary localhost-only mongod, then restarts it. The startup
+          # probe gives that up to 5 minutes; liveness/readiness only begin
+          # after it succeeds, so Kubernetes never kills Mongo mid-init.
+          startupProbe:
+            tcpSocket: { port: 27017 }
+            periodSeconds: 10
+            failureThreshold: 30
+          # mongosh is a Node.js program and can take several seconds to
+          # start on a small instance, hence the generous timeout.
           readinessProbe:
             exec:
               command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-            initialDelaySeconds: 10
             periodSeconds: 10
-            timeoutSeconds: 5
+            timeoutSeconds: 15
+            failureThreshold: 3
+          # Cheap check: is mongod still accepting connections?
           livenessProbe:
-            exec:
-              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-            initialDelaySeconds: 30
+            tcpSocket: { port: 27017 }
             periodSeconds: 20
             timeoutSeconds: 5
+            failureThreshold: 3
           resources:
             requests: { cpu: 100m, memory: 256Mi }
-            limits: { cpu: 500m, memory: 1Gi }
+            limits: { cpu: "1", memory: 1Gi }
   volumeClaimTemplates:
     - metadata:
         name: mongo-data
