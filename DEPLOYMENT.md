@@ -1,6 +1,10 @@
 # Deploying FlatShare on AWS (Docker + NGINX + Kubernetes + GitHub Actions)
 
 New to Kubernetes? Read [KUBERNETES.md](KUBERNETES.md) first: concepts and every `kubectl` command explained.
+Docker basics, the Dockerfiles and the Compose files are explained in [DOCKER.md](DOCKER.md).
+
+> **Deploy target:** Kubernetes (k3s) is the default. To deploy with Docker Compose instead, add the repository
+> variable `DEPLOY_TARGET` = `compose` (see the end of DOCKER.md). Everything else (secrets, variables, EC2) stays the same.
 
 ## Architecture
 
@@ -36,7 +40,7 @@ New to Kubernetes? Read [KUBERNETES.md](KUBERNETES.md) first: concepts and every
 |---|---|
 | Backend image | `backend/Dockerfile` |
 | Frontend image (multi-stage: Vite build → NGINX) | `frontend/Dockerfile`, `frontend/nginx.conf` |
-| MongoDB image (official + app-user init script) | `mongo/Dockerfile`, `mongo/init-app-user.sh` |
+| MongoDB image (official + user-setup script) | `mongo/Dockerfile`, `mongo/ensure-users.sh`, `mongo/flatshare-entrypoint.sh` |
 | Local stack | `docker-compose.yml`, `.env.docker.example` |
 | Kubernetes | `k8s/*.yaml` |
 | Server bootstrap | `scripts/setup-ec2.sh` |
@@ -122,8 +126,8 @@ Generate strong values locally with `openssl rand -hex 32`.
 > **No Brevo key?** Set `NODE_ENV` to `development`. OTP codes are then written to the backend logs
 > (`kubectl -n flatshare logs deploy/backend | grep code`) instead of being emailed.
 >
-> **Important:** set `MONGO_*_PASSWORD` **before the first deploy**. MongoDB creates its users only
-> once, on an empty volume. To change them later, delete the volume (Group H, "Reset database").
+> **Important:** `MONGO_ROOT_PASSWORD` is fixed once the database exists. To change it, reset the database
+> (Group H). `MONGO_APP_PASSWORD` can be changed at any time: it's updated on the next deploy.
 
 ## Group F: Deploy
 

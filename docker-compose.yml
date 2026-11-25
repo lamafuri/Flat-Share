@@ -10,15 +10,15 @@ services:
     image: flatshare-mongo:local
     restart: unless-stopped
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD}
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD}
       MONGO_APP_DB: flatshare
       MONGO_APP_USER: ${MONGO_APP_USER:-flatshare}
       MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?set MONGO_APP_PASSWORD}
     volumes:
       - mongo-data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test: ["CMD", "test", "-f", "/tmp/users-ready"]   # written by ensure-users.sh
       interval: 10s
       timeout: 5s
       retries: 10

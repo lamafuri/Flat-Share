@@ -1,8 +1,17 @@
-# FlatShare MongoDB image: official MongoDB plus an init script that creates
-# a least-privilege user for the app on first start.
+# FlatShare MongoDB image: the official MongoDB image plus a small script
+# that creates the database users once mongod is running.
+#
+# We don't use the image's built-in first-start setup
+# (MONGO_INITDB_* + /docker-entrypoint-initdb.d): it starts a temporary
+# background mongod that logs to /proc/1/fd/1, which hangs under
+# Kubernetes' containerd runtime. Instead mongod starts normally with
+# --auth, and ensure-users.sh creates or updates the users next to it.
 FROM mongo:7.0
 
-# Scripts in this folder run once, when the data directory is empty.
-COPY init-app-user.sh /docker-entrypoint-initdb.d/10-init-app-user.sh
+COPY ensure-users.sh flatshare-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/ensure-users.sh /usr/local/bin/flatshare-entrypoint.sh
 
 EXPOSE 27017
+
+ENTRYPOINT ["flatshare-entrypoint.sh"]
+CMD ["mongod", "--auth"]

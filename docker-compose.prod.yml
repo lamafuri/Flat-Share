@@ -1,0 +1,55 @@
+# Production stack for the Docker Compose deployment (fallback to Kubernetes).
+# Uses the images built and pushed by GitHub Actions; nothing is built here.
+# The pipeline writes the .env file next to this file from GitHub secrets
+# and variables, then runs:
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d --wait
+name: flatshare
+
+services:
+  mongo:
+    image: ${DOCKERHUB_USERNAME}/flatshare-mongo:${IMAGE_TAG:-latest}
+    restart: always
+    environment:
+      MONGO_ROOT_USERNAME: root
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD}
+      MONGO_APP_DB: flatshare
+      MONGO_APP_USER: flatshare
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?set MONGO_APP_PASSWORD}
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/users-ready"]   # written by ensure-users.sh
+      interval: 15s
+      timeout: 15s
+      retries: 10
+      start_period: 60s
+
+  backend:
+    image: ${DOCKERHUB_USERNAME}/flatshare-backend:${IMAGE_TAG:-latest}
+    restart: always
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      PORT: 5000
+      NODE_ENV: ${NODE_ENV:-production}
+      COOKIE_SECURE: "false"
+      CLIENT_URL: ${APP_URL}
+      MONGODB_URI: mongodb://flatshare:${MONGO_APP_PASSWORD}@mongo:27017/flatshare?authSource=flatshare
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      JWT_EXPIRES_IN: 7d
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-FlatShare App}
+
+  frontend:
+    image: ${DOCKERHUB_USERNAME}/flatshare-frontend:${IMAGE_TAG:-latest}
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "${HTTP_PORT:-80}:80"   # only NGINX is published
+
+volumes:
+  mongo-data:

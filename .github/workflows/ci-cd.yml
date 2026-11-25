@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       reset_database:
-        description: "Wipe the flatshare namespace, including the MongoDB volume (ALL DATA), before deploying"
+        description: "Wipe the database (ALL DATA) before deploying"
         type: boolean
         default: false
 
@@ -72,6 +72,10 @@ jobs:
         run: |
           MONGO_ROOT_PASSWORD=x MONGO_APP_PASSWORD=x JWT_SECRET=x \
             docker compose -f docker-compose.yml config --quiet
+      - name: Validate docker-compose.prod.yml
+        run: |
+          DOCKERHUB_USERNAME=x MONGO_ROOT_PASSWORD=x MONGO_APP_PASSWORD=x JWT_SECRET=x \
+            docker compose -f docker-compose.prod.yml config --quiet
       - name: Validate Kubernetes manifests (kubeconform)
         run: |
           curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz kubeconform
@@ -116,11 +120,12 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
-  # ─────────────────── 3. Deploy to Kubernetes ───────────────────
+  # ─────────────────── 3a. Deploy to Kubernetes (default) ───────────────────
+  # Runs unless the repository variable DEPLOY_TARGET is set to "compose".
   deploy:
     name: Deploy to k3s on EC2
     needs: build-push
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && vars.DEPLOY_TARGET != 'compose'
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -202,6 +207,14 @@ jobs:
           }
           trap diagnose ERR
 
+          # Switching back from the Compose deployment: stop it to free port 80
+          # (its data volume is kept), and make sure k3s is running.
+          if command -v docker >/dev/null 2>&1 && [ -n "$(sudo docker compose -p flatshare ps -q 2>/dev/null)" ]; then
+            echo "Stopping the Docker Compose deployment"
+            sudo docker compose -p flatshare down
+          fi
+          sudo systemctl enable --now k3s
+
           # Make sure the Kubernetes API is responsive before applying.
           echo "Waiting for the Kubernetes API..."
           for i in $(seq 1 30); do
@@ -249,3 +262,116 @@ jobs:
       - name: Clean up key
         if: always()
         run: rm -f ~/.ssh/ec2.pem
+
+  # ─────────────────── 3b. Deploy with Docker Compose (fallback) ───────────────────
+  # Runs only when the repository variable DEPLOY_TARGET is "compose".
+  deploy-compose:
+    name: Deploy with Docker Compose on EC2
+    needs: build-push
+    if: github.event_name != 'pull_request' && vars.DEPLOY_TARGET == 'compose'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.APP_URL }}
+    env:
+      EC2_HOST: ${{ vars.EC2_HOST }}
+      EC2_USER: ${{ vars.EC2_USER }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/ec2.pem
+          chmod 600 ~/.ssh/ec2.pem
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+
+      - name: Write .env from GitHub secrets and variables
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          NODE_ENV: ${{ vars.NODE_ENV || 'production' }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          EMAIL_FROM_NAME: ${{ vars.EMAIL_FROM_NAME || 'FlatShare App' }}
+          MONGO_ROOT_PASSWORD: ${{ secrets.MONGO_ROOT_PASSWORD }}
+          MONGO_APP_PASSWORD: ${{ secrets.MONGO_APP_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+        run: |
+          umask 077
+          cat > deploy.env <<ENV
+          DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
+          IMAGE_TAG=${IMAGE_TAG}
+          APP_URL=${APP_URL}
+          NODE_ENV=${NODE_ENV}
+          EMAIL_FROM=${EMAIL_FROM}
+          EMAIL_FROM_NAME=${EMAIL_FROM_NAME}
+          MONGO_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+          MONGO_APP_PASSWORD=${MONGO_APP_PASSWORD}
+          JWT_SECRET=${JWT_SECRET}
+          BREVO_API_KEY=${BREVO_API_KEY}
+          ENV
+          sed -i 's/^[[:space:]]*//' deploy.env
+
+      - name: Copy files to the server
+        run: |
+          ssh -i ~/.ssh/ec2.pem "$EC2_USER@$EC2_HOST" 'mkdir -p ~/flatshare-compose && chmod 700 ~/flatshare-compose'
+          scp -i ~/.ssh/ec2.pem docker-compose.prod.yml "$EC2_USER@$EC2_HOST:~/flatshare-compose/docker-compose.prod.yml"
+          scp -i ~/.ssh/ec2.pem deploy.env "$EC2_USER@$EC2_HOST:~/flatshare-compose/.env"
+          rm -f deploy.env
+
+      - name: Pull images and start containers
+        env:
+          RESET_DB: ${{ inputs.reset_database && 'true' || 'false' }}
+        run: |
+          ssh -i ~/.ssh/ec2.pem "$EC2_USER@$EC2_HOST" "RESET_DB=$RESET_DB bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd ~/flatshare-compose
+          chmod 600 .env
+          DC="sudo docker compose -f docker-compose.prod.yml"
+
+          diagnose() {
+            echo "::group::Diagnostics: containers and logs"
+            $DC ps -a || true
+            $DC logs --tail=60 || true
+            echo "::endgroup::"
+          }
+          trap diagnose ERR
+
+          # k3s's load balancer also uses port 80: stop k3s and its pods.
+          # Kubernetes data stays on disk; the k8s deploy job starts it again.
+          if [ -x /usr/local/bin/k3s-killall.sh ] && systemctl is-enabled --quiet k3s 2>/dev/null; then
+            echo "Stopping k3s to free port 80"
+            sudo systemctl disable --now k3s
+            sudo /usr/local/bin/k3s-killall.sh >/dev/null 2>&1 || true
+          fi
+
+          if ! command -v docker >/dev/null 2>&1; then
+            echo "Installing Docker"
+            curl -fsSL https://get.docker.com | sudo sh
+          fi
+          sudo systemctl enable --now docker
+
+          if [ "$RESET_DB" = "true" ]; then
+            echo "reset_database requested: removing containers and the Mongo volume"
+            $DC down -v
+          fi
+
+          $DC pull
+          $DC up -d --remove-orphans --wait --wait-timeout 300
+          $DC ps
+          sudo docker image prune -f >/dev/null
+          REMOTE
+
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 10); do
+            if curl -fsS "http://$EC2_HOST/api/health"; then echo; echo "Healthy"; exit 0; fi
+            sleep 6
+          done
+          echo "Health check failed"; exit 1
+
+      - name: Clean up key
+        if: always()
+        run: rm -f ~/.ssh/ec2.pem deploy.env

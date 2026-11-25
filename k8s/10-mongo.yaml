@@ -38,9 +38,9 @@ spec:
           ports:
             - containerPort: 27017
           env:
-            - name: MONGO_INITDB_ROOT_USERNAME
+            - name: MONGO_ROOT_USERNAME
               valueFrom: { secretKeyRef: { name: flatshare-secrets, key: MONGO_ROOT_USERNAME } }
-            - name: MONGO_INITDB_ROOT_PASSWORD
+            - name: MONGO_ROOT_PASSWORD
               valueFrom: { secretKeyRef: { name: flatshare-secrets, key: MONGO_ROOT_PASSWORD } }
             - name: MONGO_APP_USER
               valueFrom: { secretKeyRef: { name: flatshare-secrets, key: MONGO_APP_USER } }
@@ -51,22 +51,18 @@ spec:
           volumeMounts:
             - name: mongo-data
               mountPath: /data/db
-          # First start runs the init script (creates the app user) on a
-          # temporary localhost-only mongod, then restarts it. The startup
-          # probe gives that up to 5 minutes; liveness/readiness only begin
-          # after it succeeds, so Kubernetes never kills Mongo mid-init.
+          # Up to 5 minutes for mongod to start accepting connections.
+          # Liveness/readiness only begin after this succeeds.
           startupProbe:
             tcpSocket: { port: 27017 }
             periodSeconds: 10
             failureThreshold: 30
-          # TCP checks instead of running mongosh: mongosh is a Node.js
-          # program, and starting it every few seconds overloads a small
-          # instance. During first-start init, mongod listens on localhost
-          # only, so this check correctly stays "not ready" until init is done.
+          # Ready = mongod is up AND ensure-users.sh has created the users
+          # (it writes this file). A file check is far cheaper than mongosh.
           readinessProbe:
-            tcpSocket: { port: 27017 }
-            periodSeconds: 10
-            timeoutSeconds: 5
+            exec:
+              command: ["test", "-f", "/tmp/users-ready"]
+            periodSeconds: 5
             failureThreshold: 3
           # Cheap check: is mongod still accepting connections?
           livenessProbe:

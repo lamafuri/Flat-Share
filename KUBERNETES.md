@@ -32,7 +32,7 @@ If you change the image tag, it rolls out the new version. Docker Compose doesn'
 | `.env` with passwords | **Secret** | `flatshare-secrets` |
 | `volumes:` (named volume) | **PersistentVolumeClaim (PVC)** → **PersistentVolume (PV)** | `mongo-data-mongo-0` |
 | Compose project name | **Namespace** (a folder that groups and isolates objects) | `flatshare` |
-| `healthcheck:` | **startupProbe / readinessProbe / livenessProbe** | `/api/health`, `/healthz`, TCP port 27017 |
+| `healthcheck:` | **startupProbe / readinessProbe / livenessProbe** | `/api/health`, `/healthz`, Mongo: TCP port 27017 + `/tmp/users-ready` file |
 | `depends_on: condition: service_healthy` | **initContainer** that waits before the main container starts | `wait-for-mongo` in the backend pod |
 | `deploy.resources.limits` | **resources.requests / limits** | in every container spec |
 | `docker compose up -d` | `kubectl apply -f k8s/` | done by GitHub Actions |
@@ -113,8 +113,9 @@ The rolling update waits for **readiness**. That's how it knows a new pod is rea
 
 Lesson learned on this project: probes cost CPU. The first version ran `mongosh` (a Node.js program) every few seconds
 as the MongoDB probe. On a small instance it took longer than the 5-second timeout, so the liveness probe kept killing
-MongoDB. The restart loop overloaded the node until even the API server timed out. Cheap TCP checks plus a startup
-probe fixed it.
+MongoDB. The restart loop overloaded the node until even the API server timed out. Cheap TCP and file checks plus a startup
+probe fixed it. A second lesson: MongoDB's built-in first-start setup hangs under Kubernetes' containerd runtime, so
+our image creates its users with its own script (`mongo/ensure-users.sh`) instead.
 
 ### Init containers
 The backend pod has an **initContainer** (`wait-for-mongo`, a tiny busybox image). Init containers run **before** the
