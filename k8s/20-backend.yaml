@@ -18,6 +18,16 @@ spec:
       labels:
         app: backend
     spec:
+      # Init container: runs to completion before the backend starts. It waits
+      # until MongoDB accepts connections, so the backend doesn't crash-loop
+      # (and back off for minutes) while the database is still starting.
+      initContainers:
+        - name: wait-for-mongo
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -z -w 2 mongo 27017; do echo waiting for mongo; sleep 3; done"]
+          resources:
+            requests: { cpu: 10m, memory: 8Mi }
+            limits: { cpu: 50m, memory: 16Mi }
       containers:
         - name: backend
           image: ${DOCKERHUB_USERNAME}/flatshare-backend:${IMAGE_TAG}

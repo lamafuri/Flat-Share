@@ -194,6 +194,14 @@ jobs:
             rm -f ~/flatshare-deploy/02-secret.yaml
           }
           trap diagnose ERR
+
+          # Make sure the Kubernetes API is responsive before applying.
+          echo "Waiting for the Kubernetes API..."
+          for i in $(seq 1 30); do
+            kubectl get --raw /readyz >/dev/null 2>&1 && break
+            sleep 5
+          done
+          kubectl wait --for=condition=Ready node --all --timeout=120s
           kubectl apply -f 00-namespace.yaml
           kubectl apply -f .
           rm -f 02-secret.yaml   # do not leave secrets on disk

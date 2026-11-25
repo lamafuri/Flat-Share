@@ -59,13 +59,14 @@ spec:
             tcpSocket: { port: 27017 }
             periodSeconds: 10
             failureThreshold: 30
-          # mongosh is a Node.js program and can take several seconds to
-          # start on a small instance, hence the generous timeout.
+          # TCP checks instead of running mongosh: mongosh is a Node.js
+          # program, and starting it every few seconds overloads a small
+          # instance. During first-start init, mongod listens on localhost
+          # only, so this check correctly stays "not ready" until init is done.
           readinessProbe:
-            exec:
-              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+            tcpSocket: { port: 27017 }
             periodSeconds: 10
-            timeoutSeconds: 15
+            timeoutSeconds: 5
             failureThreshold: 3
           # Cheap check: is mongod still accepting connections?
           livenessProbe:

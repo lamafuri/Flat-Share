@@ -32,7 +32,8 @@ If you change the image tag, it rolls out the new version. Docker Compose doesn'
 | `.env` with passwords | **Secret** | `flatshare-secrets` |
 | `volumes:` (named volume) | **PersistentVolumeClaim (PVC)** → **PersistentVolume (PV)** | `mongo-data-mongo-0` |
 | Compose project name | **Namespace** (a folder that groups and isolates objects) | `flatshare` |
-| `healthcheck:` | **readinessProbe / livenessProbe** | `/api/health`, `/healthz`, `mongosh ping` |
+| `healthcheck:` | **startupProbe / readinessProbe / livenessProbe** | `/api/health`, `/healthz`, TCP port 27017 |
+| `depends_on: condition: service_healthy` | **initContainer** that waits before the main container starts | `wait-for-mongo` in the backend pod |
 | `deploy.resources.limits` | **resources.requests / limits** | in every container spec |
 | `docker compose up -d` | `kubectl apply -f k8s/` | done by GitHub Actions |
 | The Docker daemon | The **kubelet** + container runtime (containerd) on each node | k3s runs these |
@@ -106,7 +107,21 @@ Note: Secrets are only **base64-encoded**, not encrypted. Their protection comes
 | **readinessProbe** | "Can this pod receive traffic *now*?" | Takes the pod out of the Service's endpoints (no traffic), but doesn't restart it |
 | **livenessProbe** | "Is this pod still alive or stuck?" | Kills and restarts the container |
 
+| **startupProbe** (mongo) | "Has this slow-starting container finished booting?" | Until it passes, readiness and liveness are switched off. Only after `failureThreshold × periodSeconds` (5 min) without passing is the container restarted |
+
 The rolling update waits for **readiness**. That's how it knows a new pod is ready before removing an old one.
+
+Lesson learned on this project: probes cost CPU. The first version ran `mongosh` (a Node.js program) every few seconds
+as the MongoDB probe. On a small instance it took longer than the 5-second timeout, so the liveness probe kept killing
+MongoDB. The restart loop overloaded the node until even the API server timed out. Cheap TCP checks plus a startup
+probe fixed it.
+
+### Init containers
+The backend pod has an **initContainer** (`wait-for-mongo`, a tiny busybox image). Init containers run **before** the
+main container and must finish successfully first. This one loops until `mongo:27017` accepts connections. Without it, the
+backend would exit on startup, and Kubernetes would back off for longer and longer (`CrashLoopBackOff`, up to 5 minutes)
+before trying again. While it's waiting, `kubectl get pods` shows the backend as `Init:0/1`, and
+`kubectl logs <backend-pod> -c wait-for-mongo` shows the "waiting for mongo" lines.
 
 ### Resources
 - `requests`: what the scheduler **reserves** for the pod. It decides which node has room.
