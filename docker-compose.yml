@@ -1,0 +1,56 @@
+# Run the whole stack locally with Docker:
+#   cp .env.docker.example .env.docker   (fill in values)
+#   docker compose --env-file .env.docker up --build
+# Then open http://localhost:8080
+name: flatshare
+
+services:
+  mongo:
+    build: ./mongo
+    image: flatshare-mongo:local
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD}
+      MONGO_APP_DB: flatshare
+      MONGO_APP_USER: ${MONGO_APP_USER:-flatshare}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?set MONGO_APP_PASSWORD}
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # No ports published: only the backend can reach the database.
+
+  backend:
+    build: ./backend
+    image: flatshare-backend:local
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      PORT: 5000
+      NODE_ENV: ${NODE_ENV:-development}
+      COOKIE_SECURE: "false"
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
+      MONGODB_URI: mongodb://${MONGO_APP_USER:-flatshare}:${MONGO_APP_PASSWORD}@mongo:27017/flatshare?authSource=flatshare
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-FlatShare App}
+
+  frontend:
+    build: ./frontend
+    image: flatshare-frontend:local
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  mongo-data:

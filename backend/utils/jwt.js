@@ -10,12 +10,19 @@ const generateToken = (id) => {
 // sites, so a SameSite=Strict/Lax cookie is never sent with API requests.
 // Cross-site cookies must be SameSite=None, which browsers only accept
 // together with Secure. Locally both run on localhost, where Lax works.
+//
+// Behind the NGINX reverse proxy (Docker/Kubernetes deployment) the frontend
+// and API share one origin, and the site may be served over plain HTTP, where
+// browsers drop Secure cookies. COOKIE_SECURE=false turns Secure off there,
+// and SameSite falls back to Lax, which same-origin requests satisfy.
 export const authCookieOptions = () => {
-  const isProduction = process.env.NODE_ENV === 'production';
+  const secure = process.env.COOKIE_SECURE
+    ? process.env.COOKIE_SECURE === 'true'
+    : process.env.NODE_ENV === 'production';
   return {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax'
+    secure,
+    sameSite: secure ? 'none' : 'lax'
   };
 };
 

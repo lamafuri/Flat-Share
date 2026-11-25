@@ -1,0 +1,196 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Only one deployment at a time; a newer push waits for the running one.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  # ─────────────────────────── 1. CI ───────────────────────────
+  backend-ci:
+    name: Backend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Syntax check all source files
+        run: find . -name '*.js' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
+      - name: Dependency audit (report only)
+        run: npm audit --omit=dev --audit-level=high || true
+
+  frontend-ci:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Production build
+        run: npm run build
+        env:
+          VITE_API_URL: ""
+
+  manifests-ci:
+    name: Validate configs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate docker-compose.yml
+        run: |
+          MONGO_ROOT_PASSWORD=x MONGO_APP_PASSWORD=x JWT_SECRET=x \
+            docker compose -f docker-compose.yml config --quiet
+      - name: Validate Kubernetes manifests (kubeconform)
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz kubeconform
+          export DOCKERHUB_USERNAME=example IMAGE_TAG=test APP_URL=http://example NODE_ENV=production EMAIL_FROM=a@b.c EMAIL_FROM_NAME=x
+          mkdir -p rendered
+          for f in k8s/*.yaml; do
+            envsubst '${DOCKERHUB_USERNAME} ${IMAGE_TAG} ${APP_URL} ${NODE_ENV} ${EMAIL_FROM} ${EMAIL_FROM_NAME}' < "$f" > "rendered/$(basename "$f")"
+          done
+          ./kubeconform -strict -summary rendered/
+
+  # ─────────────────── 2. Build & push images ───────────────────
+  build-push:
+    name: Build & push ${{ matrix.image }}
+    needs: [backend-ci, frontend-ci, manifests-ci]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - image: flatshare-backend
+            context: ./backend
+          - image: flatshare-frontend
+            context: ./frontend
+          - image: flatshare-mongo
+            context: ./mongo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_USERNAME }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
+            ${{ env.DOCKERHUB_USERNAME }}/${{ matrix.image }}:latest
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  # ─────────────────── 3. Deploy to Kubernetes ───────────────────
+  deploy:
+    name: Deploy to k3s on EC2
+    needs: build-push
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.APP_URL }}
+    env:
+      EC2_HOST: ${{ vars.EC2_HOST }}
+      EC2_USER: ${{ vars.EC2_USER }}
+      APP_URL: ${{ vars.APP_URL }}
+      NODE_ENV: ${{ vars.NODE_ENV || 'production' }}
+      EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+      EMAIL_FROM_NAME: ${{ vars.EMAIL_FROM_NAME || 'FlatShare App' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/ec2.pem
+          chmod 600 ~/.ssh/ec2.pem
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+
+      - name: Render manifests
+        run: |
+          mkdir -p rendered
+          for f in k8s/*.yaml; do
+            envsubst '${DOCKERHUB_USERNAME} ${IMAGE_TAG} ${APP_URL} ${NODE_ENV} ${EMAIL_FROM} ${EMAIL_FROM_NAME}' < "$f" > "rendered/$(basename "$f")"
+          done
+
+      - name: Render Secret from GitHub secrets
+        env:
+          MONGO_ROOT_PASSWORD: ${{ secrets.MONGO_ROOT_PASSWORD }}
+          MONGO_APP_PASSWORD: ${{ secrets.MONGO_APP_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+        run: |
+          kubectl create secret generic flatshare-secrets \
+            --namespace flatshare \
+            --from-literal=MONGO_ROOT_USERNAME=root \
+            --from-literal=MONGO_ROOT_PASSWORD="$MONGO_ROOT_PASSWORD" \
+            --from-literal=MONGO_APP_USER=flatshare \
+            --from-literal=MONGO_APP_PASSWORD="$MONGO_APP_PASSWORD" \
+            --from-literal=JWT_SECRET="$JWT_SECRET" \
+            --from-literal=BREVO_API_KEY="$BREVO_API_KEY" \
+            --dry-run=client -o yaml > rendered/02-secret.yaml
+
+      - name: Copy manifests to the server
+        run: |
+          ssh -i ~/.ssh/ec2.pem "$EC2_USER@$EC2_HOST" 'rm -rf ~/flatshare-deploy && mkdir -p ~/flatshare-deploy'
+          scp -i ~/.ssh/ec2.pem rendered/*.yaml "$EC2_USER@$EC2_HOST:~/flatshare-deploy/"
+
+      - name: Apply and wait for rollout
+        run: |
+          ssh -i ~/.ssh/ec2.pem "$EC2_USER@$EC2_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          export KUBECONFIG=$HOME/.kube/config
+          cd ~/flatshare-deploy
+          kubectl apply -f 00-namespace.yaml
+          kubectl apply -f .
+          rm -f 02-secret.yaml   # do not leave secrets on disk
+          kubectl -n flatshare rollout status statefulset/mongo   --timeout=300s
+          kubectl -n flatshare rollout status deployment/backend  --timeout=300s
+          kubectl -n flatshare rollout status deployment/frontend --timeout=300s
+          kubectl -n flatshare get pods,svc -o wide
+          REMOTE
+
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 10); do
+            if curl -fsS "http://$EC2_HOST/api/health"; then echo; echo "Healthy"; exit 0; fi
+            sleep 6
+          done
+          echo "Health check failed"; exit 1
+
+      - name: Clean up key
+        if: always()
+        run: rm -f ~/.ssh/ec2.pem

@@ -1,7 +1,10 @@
 import axios from 'axios'
 
-// Get API URL from environment, fallback for development
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+// Base URL of the backend. In the Docker/Kubernetes build it is set to an
+// empty string, so requests go to /api on the same origin and NGINX proxies
+// them to the backend. Unset in local development, it falls back to the
+// backend on localhost.
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000'
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,

@@ -1,0 +1,64 @@
+# Express API: 2 replicas behind an internal (ClusterIP) Service.
+# Not exposed publicly: NGINX in the frontend pods proxies /api to it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: flatshare
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: ${DOCKERHUB_USERNAME}/flatshare-backend:${IMAGE_TAG}
+          ports:
+            - containerPort: 5000
+          envFrom:
+            - configMapRef:
+                name: flatshare-config
+          env:
+            - name: MONGO_APP_USER
+              valueFrom: { secretKeyRef: { name: flatshare-secrets, key: MONGO_APP_USER } }
+            - name: MONGO_APP_PASSWORD
+              valueFrom: { secretKeyRef: { name: flatshare-secrets, key: MONGO_APP_PASSWORD } }
+            # $(VAR) expands the two variables defined just above.
+            - name: MONGODB_URI
+              value: "mongodb://$(MONGO_APP_USER):$(MONGO_APP_PASSWORD)@mongo:27017/flatshare?authSource=flatshare"
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: flatshare-secrets, key: JWT_SECRET } }
+            - name: BREVO_API_KEY
+              valueFrom: { secretKeyRef: { name: flatshare-secrets, key: BREVO_API_KEY } }
+          readinessProbe:
+            httpGet: { path: /api/health, port: 5000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/health, port: 5000 }
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 384Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: flatshare
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - port: 5000
+      targetPort: 5000

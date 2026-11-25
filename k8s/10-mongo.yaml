@@ -1,0 +1,76 @@
+# MongoDB: a StatefulSet with a persistent volume so data survives pod
+# restarts and redeploys. Only reachable inside the cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+  namespace: flatshare
+  labels:
+    app: mongo
+spec:
+  clusterIP: None   # headless: stable DNS name for the StatefulSet pod
+  selector:
+    app: mongo
+  ports:
+    - name: mongo
+      port: 27017
+      targetPort: 27017
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongo
+  namespace: flatshare
+spec:
+  serviceName: mongo
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+        - name: mongo
+          image: ${DOCKERHUB_USERNAME}/flatshare-mongo:${IMAGE_TAG}
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom: { secretKeyRef: { name: flatshare-secrets, key: MONGO_ROOT_USERNAME } }
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom: { secretKeyRef: { name: flatshare-secrets, key: MONGO_ROOT_PASSWORD } }
+            - name: MONGO_APP_USER
+              valueFrom: { secretKeyRef: { name: flatshare-secrets, key: MONGO_APP_USER } }
+            - name: MONGO_APP_PASSWORD
+              valueFrom: { secretKeyRef: { name: flatshare-secrets, key: MONGO_APP_PASSWORD } }
+            - name: MONGO_APP_DB
+              valueFrom: { configMapKeyRef: { name: flatshare-config, key: MONGO_APP_DB } }
+          volumeMounts:
+            - name: mongo-data
+              mountPath: /data/db
+          readinessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 1Gi }
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
