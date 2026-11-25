@@ -187,11 +187,13 @@ Points to explain:
 | Deploy step: `Permission denied (publickey)` | `EC2_SSH_KEY` must be the whole `.pem` content. `EC2_USER` must be `ubuntu`. |
 | Deploy step: `ssh: connect … timed out` | Security group must allow port 22 from `0.0.0.0/0`. The instance must be running (lab started). |
 | Pods `ImagePullBackOff` | Docker Hub repos must be public, and `DOCKERHUB_USERNAME` must be correct. |
-| Backend `CrashLoopBackOff`, logs show `Authentication failed` | Mongo passwords changed after the first deploy. Reset the database (below). |
+| Backend `CrashLoopBackOff`, logs show `Authentication failed` | Mongo passwords changed after the first deploy, or its first start was interrupted. Reset the database (below). |
+| `mongo-0` stuck on an old image while unhealthy | A StatefulSet won't replace a pod that isn't Ready. The pipeline now deletes it automatically. By hand: `kubectl -n flatshare delete pod mongo-0`. |
 | Site not loading on port 80 | `kubectl get svc -n flatshare frontend` should show `EXTERNAL-IP`. Check the security group allows port 80. |
 | Lab session ended | Start the lab and the instance. k3s and all pods start again by themselves. Without an Elastic IP, update `EC2_HOST`/`APP_URL` and re-run the workflow. |
 
-**Reset database** (deletes all data):
+**Reset database** (deletes all data). The easiest way is GitHub → Actions → CI/CD → **Run workflow**, tick
+**reset_database**, and run it. Or by hand on the server:
 ```bash
 kubectl delete statefulset mongo -n flatshare
 kubectl delete pvc mongo-data-mongo-0 -n flatshare

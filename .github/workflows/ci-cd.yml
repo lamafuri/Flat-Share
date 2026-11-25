@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      reset_database:
+        description: "Wipe the flatshare namespace, including the MongoDB volume (ALL DATA), before deploying"
+        type: boolean
+        default: false
 
 # Only one deployment at a time; a newer push waits for the running one.
 concurrency:
@@ -169,8 +174,10 @@ jobs:
           scp -i ~/.ssh/ec2.pem rendered/*.yaml "$EC2_USER@$EC2_HOST:~/flatshare-deploy/"
 
       - name: Apply and wait for rollout
+        env:
+          RESET_DB: ${{ inputs.reset_database && 'true' || 'false' }}
         run: |
-          ssh -i ~/.ssh/ec2.pem "$EC2_USER@$EC2_HOST" 'bash -s' <<'REMOTE'
+          ssh -i ~/.ssh/ec2.pem "$EC2_USER@$EC2_HOST" "RESET_DB=$RESET_DB bash -s" <<'REMOTE'
           set -euo pipefail
           export KUBECONFIG=$HOME/.kube/config
           cd ~/flatshare-deploy
@@ -202,9 +209,29 @@ jobs:
             sleep 5
           done
           kubectl wait --for=condition=Ready node --all --timeout=120s
+
+          # Manual "Run workflow" with reset_database ticked: start from scratch.
+          if [ "$RESET_DB" = "true" ]; then
+            echo "reset_database requested: deleting namespace flatshare (all data)"
+            kubectl delete namespace flatshare --ignore-not-found --wait=true --timeout=180s
+          fi
+
           kubectl apply -f 00-namespace.yaml
           kubectl apply -f .
           rm -f 02-secret.yaml   # do not leave secrets on disk
+
+          # A StatefulSet will not replace a pod that is not Ready with a new
+          # version: it waits for the old, broken pod forever. If mongo-0 is
+          # unhealthy and still on an old revision, delete it so the
+          # controller recreates it from the new spec. The data volume stays.
+          sleep 5
+          UPDATE_REV=$(kubectl -n flatshare get sts mongo -o jsonpath='{.status.updateRevision}')
+          POD_REV=$(kubectl -n flatshare get pod mongo-0 -o jsonpath='{.metadata.labels.controller-revision-hash}' 2>/dev/null || true)
+          POD_READY=$(kubectl -n flatshare get pod mongo-0 -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)
+          if [ -n "$POD_REV" ] && [ "$POD_REV" != "$UPDATE_REV" ] && [ "$POD_READY" != "True" ]; then
+            echo "mongo-0 is unhealthy and on an old revision: recreating it"
+            kubectl -n flatshare delete pod mongo-0 --wait=true
+          fi
           kubectl -n flatshare rollout status statefulset/mongo   --timeout=300s
           kubectl -n flatshare rollout status deployment/backend  --timeout=300s
           kubectl -n flatshare rollout status deployment/frontend --timeout=300s
