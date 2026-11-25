@@ -32,6 +32,13 @@ spec:
       labels:
         app: mongo
     spec:
+      # Run as the mongodb user (uid/gid 999), never root. fsGroup makes the
+      # data volume writable for that group.
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        runAsNonRoot: true
+        fsGroup: 999
       containers:
         - name: mongo
           image: ${DOCKERHUB_USERNAME}/flatshare-mongo:${IMAGE_TAG}

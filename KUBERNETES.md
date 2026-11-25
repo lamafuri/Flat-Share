@@ -117,6 +117,13 @@ MongoDB. The restart loop overloaded the node until even the API server timed ou
 probe fixed it. A second lesson: MongoDB's built-in first-start setup hangs under Kubernetes' containerd runtime, so
 our image creates its users with its own script (`mongo/ensure-users.sh`) instead.
 
+### securityContext (running as non-root)
+The mongo pod has `securityContext: runAsUser: 999, runAsNonRoot: true, fsGroup: 999`. The container runs as the
+unprivileged `mongodb` user, and Kubernetes refuses to start it as root. `fsGroup` makes the data volume writable for
+that user's group. Third lesson from this project: the official MongoDB image starts as root and switches user with a tool
+called `gosu`, which hung forever on our k3s host. Running as the `mongodb` user from the start skips that step entirely.
+To check: `kubectl -n flatshare exec mongo-0 -- id`
+
 ### Init containers
 The backend pod has an **initContainer** (`wait-for-mongo`, a tiny busybox image). Init containers run **before** the
 main container and must finish successfully first. This one loops until `mongo:27017` accepts connections. Without it, the
